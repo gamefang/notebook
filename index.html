@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f5">
+  <title data-i18n="documentTitle">Notebook</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" id="highlightThemeLight" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" id="highlightThemeDark" media="(prefers-color-scheme: dark)">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <div class="brand">
+        <img class="app-icon" src="./favicon.svg" alt="">
+        <h1 id="appTitle">Notebook</h1>
+      </div>
+      <div class="toolbar" aria-label="Notebook toolbar" data-i18n-aria-label="toolbarLabel">
+        <button id="undoButton" class="button button-secondary" type="button" data-i18n="undoButton" title="Undo">↶ Undo</button>
+        <button id="redoButton" class="button button-secondary" type="button" data-i18n="redoButton" title="Redo">↷ Redo</button>
+        <button id="saveButton" class="button" type="button" data-i18n="saveButton">Save</button>
+        <button id="pullButton" class="button button-success" type="button" data-i18n="pullButton">↓ Pull</button>
+        <button id="pushButton" class="button button-warm" type="button" data-i18n="pushButton">↑ Push</button>
+        <button id="settingsButton" class="button button-secondary" type="button" data-i18n="settingsButton">⚙ Settings</button>
+      </div>
+    </header>
+
+    <p id="status" class="status" role="status" aria-live="polite">Ready</p>
+
+    <section class="workspace" aria-label="Notebook workspace">
+      <nav id="tabBar" class="tab-bar" aria-label="Open notes">
+        <div id="tabs" class="tabs"></div>
+        <button id="newTabButton" class="new-tab-button" type="button" data-i18n-title="newTabTitle" title="Open a note" aria-label="Open a note">＋</button>
+      </nav>
+
+      <section id="editorPanel" class="editor-panel" hidden>
+        <div class="editor-topline">
+          <span id="currentFilename" class="current-filename"></span>
+          <span id="documentState" class="document-state"></span>
+          <span id="languageLabel" class="language-label"></span>
+        </div>
+        <div class="editor-shell">
+          <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
+          <textarea
+            id="editor"
+            class="editor"
+            aria-label="Note editor"
+            data-i18n-aria-label="editorLabel"
+            data-i18n-placeholder="editorPlaceholder"
+            placeholder="Start writing..."
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+            autocorrect="off"
+            wrap="off"
+          ></textarea>
+        </div>
+        <div class="editor-footer">
+          <span id="fileHint"></span>
+          <span id="charCount">0 bytes</span>
+        </div>
+      </section>
+
+      <section id="emptyState" class="empty-state">
+        <div class="empty-icon">▤</div>
+        <h2 data-i18n="emptyTitle">Your notebook is empty</h2>
+        <p data-i18n="emptyDescription">Use + to open a registered Gist file, or add one in Settings.</p>
+        <button id="emptyAddButton" class="button" type="button" data-i18n="addGistButton">＋ Add Gist file</button>
+      </section>
+    </section>
+
+    <footer class="app-footer">
+      <span data-i18n="saveLocalOnlyHint">Save stores this note in this browser. Push syncs it to GitHub.</span>
+      <span data-i18n="storageWarning">Browser storage is limited. Keep important notes synced and maintain a backup.</span>
+    </footer>
+  </main>
+
+  <!-- Settings -->
+  <dialog id="settingsDialog" class="dialog settings-dialog">
+    <form id="settingsForm" class="dialog-form">
+      <div class="dialog-heading">
+        <h2 data-i18n="settingsTitle">Settings</h2>
+        <button id="closeSettingsButton" class="icon-button" type="button" data-i18n-title="closeButton" title="Close" aria-label="Close">×</button>
+      </div>
+
+      <label for="managerTitleInput" data-i18n="managerTitleLabel">Page title</label>
+      <input id="managerTitleInput" name="managerTitle" type="text" maxlength="80" required data-i18n-placeholder="managerTitlePlaceholder" placeholder="Notebook">
+
+      <label for="tokenInput" data-i18n="tokenLabel">GitHub token</label>
+      <input id="tokenInput" name="token" type="password" autocomplete="off" spellcheck="false" data-i18n-placeholder="tokenPlaceholder" placeholder="Personal access token with gist scope">
+      <p class="field-hint" data-i18n="tokenHint">Stored in this browser's localStorage. Use only on trusted devices.</p>
+
+      <div class="section-heading">
+        <div>
+          <h3 data-i18n="gistFilesTitle">Gist files</h3>
+          <p class="field-hint" data-i18n="gistFilesDescription">Each row connects one file in a Gist. Add a Gist ID or URL to discover its files.</p>
+        </div>
+        <button id="addGistButton" class="button button-small button-warm" type="button" data-i18n="addGistButton">＋ Add Gist file</button>
+      </div>
+
+      <div class="entry-table-wrap">
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th data-i18n="gistNameColumn">Gist name</th>
+              <th data-i18n="gistIdColumn">Gist ID</th>
+              <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="gistEntryList"></tbody>
+        </table>
+        <p id="noEntries" class="no-entries" hidden>No Gist files registered.</p>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="button" type="submit" data-i18n="saveButton">Save</button>
+        <button id="cancelSettingsButton" class="button button-secondary" type="button" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Add one or more files from a Gist -->
+  <dialog id="addGistDialog" class="dialog add-dialog">
+    <form id="addGistForm" class="dialog-form">
+      <div class="dialog-heading">
+        <h2 data-i18n="addGistTitle">Add Gist files</h2>
+        <button id="closeAddGistButton" class="icon-button" type="button" data-i18n-title="closeButton" title="Close" aria-label="Close">×</button>
+      </div>
+
+      <label for="gistUrlInput" data-i18n="gistUrlLabel">Gist URL or ID</label>
+      <div class="input-action-row">
+        <input id="gistUrlInput" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="gistUrlPlaceholder" placeholder="https://gist.github.com/username/…" required>
+        <button id="loadGistButton" class="button" type="button" data-i18n="loadGistButton">Load files</button>
+      </div>
+
+      <div id="gistFilePicker" class="gist-file-picker" hidden>
+        <label data-i18n="availableFilesLabel">Files in this Gist</label>
+        <div id="availableFiles" class="available-files"></div>
+      </div>
+
+
+      <p id="addGistStatus" class="dialog-status" role="status" aria-live="polite"></p>
+
+      <div class="dialog-actions">
+        <button id="addSelectedButton" class="button" type="submit" data-i18n="addSelectedButton">Add selected files</button>
+        <button id="cancelAddGistButton" class="button button-secondary" type="button" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Open an already registered file -->
+  <dialog id="openDialog" class="dialog open-dialog">
+    <div class="dialog-form">
+      <div class="dialog-heading">
+        <h2 data-i18n="newTabTitle">Open a note</h2>
+        <button id="closeOpenDialogButton" class="icon-button" type="button" data-i18n-title="closeButton" title="Close" aria-label="Close">×</button>
+      </div>
+      <div id="openFileList" class="open-file-list"></div>
+      <p id="openEmptyHint" class="field-hint" hidden>No Gist files registered. Add one in Settings.</p>
+      <div class="dialog-actions">
+        <button id="openAddGistButton" class="button button-warm" type="button" data-i18n="addGistButton">＋ Add Gist file</button>
+        <button id="cancelOpenDialogButton" class="button button-secondary" type="button" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>

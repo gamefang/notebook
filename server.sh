@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 || true
+python3 -m http.server 8262
