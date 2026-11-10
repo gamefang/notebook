@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" id="highlightThemeLight" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" id="highlightThemeDark" media="(prefers-color-scheme: dark)">
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script id="highlightScript" defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
   <script type="module" src="./js/app.js"></script>
 </head>
 <body>
@@ -44,22 +44,30 @@
           <span id="documentState" class="document-state"></span>
           <span id="languageLabel" class="language-label"></span>
         </div>
+
         <div class="editor-shell">
-          <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
-          <textarea
-            id="editor"
-            class="editor"
-            aria-label="Note editor"
-            data-i18n-aria-label="editorLabel"
-            data-i18n-placeholder="editorPlaceholder"
-            placeholder="Start writing..."
-            spellcheck="false"
-            autocapitalize="off"
-            autocomplete="off"
-            autocorrect="off"
-            wrap="off"
-          ></textarea>
+          <div id="lineNumbers" class="line-numbers" aria-hidden="true"></div>
+
+          <div class="editor-stage">
+            <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
+            <textarea
+              id="editor"
+              class="editor"
+              aria-label="Note editor"
+              data-i18n-aria-label="editorLabel"
+              data-i18n-placeholder="editorPlaceholder"
+              placeholder="Start writing..."
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+              autocorrect="off"
+              wrap="soft"
+            ></textarea>
+          </div>
+
+          <div id="lineMeasure" class="line-measure" aria-hidden="true"></div>
         </div>
+
         <div class="editor-footer">
           <span id="fileHint"></span>
           <span id="charCount">0 bytes</span>
@@ -142,7 +150,6 @@
         <label data-i18n="availableFilesLabel">Files in this Gist</label>
         <div id="availableFiles" class="available-files"></div>
       </div>
-
 
       <p id="addGistStatus" class="dialog-status" role="status" aria-live="polite"></p>
 

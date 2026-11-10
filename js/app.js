@@ -16,9 +16,12 @@ const elements = {
   tabs: document.querySelector('#tabs'),
   newTabButton: document.querySelector('#newTabButton'),
   editorPanel: document.querySelector('#editorPanel'),
+  editorShell: document.querySelector('.editor-shell'),
   editor: document.querySelector('#editor'),
   highlightLayer: document.querySelector('#highlightLayer'),
   highlightCode: document.querySelector('#highlightCode'),
+  lineNumbers: document.querySelector('#lineNumbers'),
+  lineMeasure: document.querySelector('#lineMeasure'),
   currentFilename: document.querySelector('#currentFilename'),
   documentState: document.querySelector('#documentState'),
   languageLabel: document.querySelector('#languageLabel'),
@@ -336,8 +339,6 @@ function languageForFilename(filename) {
     yaml: ['yaml', 'YAML'],
     toml: ['ini', 'TOML'],
     ini: ['ini', 'INI'],
-    gd: ['gdscript', 'GDScript'],
-    gdshader: ['glsl', 'Godot Shader'],
     shader: ['glsl', 'Shader'],
     tres: ['ini', 'Godot Resource'],
     tscn: ['ini', 'Godot Scene'],
@@ -363,23 +364,163 @@ function languageForFilename(filename) {
   return languages[extension] ?? ['plaintext', t('languagePlainText')];
 }
 
+function highlightMarkdownInline(value) {
+  const pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_|!?\[[^\]\n]+\]\([^)]+\))/g;
+
+  return value.replace(pattern, (token) => {
+    let className = 'md-link';
+
+    if (token.startsWith('`')) {
+      className = 'md-inline-code';
+    } else if (token.startsWith('**') || token.startsWith('__')) {
+      className = 'md-strong';
+    } else if (token.startsWith('~~')) {
+      className = 'md-quote';
+    } else if (token.startsWith('*') || token.startsWith('_')) {
+      className = 'md-emphasis';
+    }
+
+    return `<span class="${className}">${token}</span>`;
+  });
+}
+
+function highlightMarkdown(text) {
+  let fence = null;
+
+  return text.split('\n').map((line) => {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+
+    if (fenceMatch) {
+      if (!fence) {
+        fence = {
+          marker: fenceMatch[1][0],
+          length: fenceMatch[1].length
+        };
+      } else if (
+        fenceMatch[1][0] === fence.marker
+        && fenceMatch[1].length >= fence.length
+      ) {
+        fence = null;
+      }
+
+      return `<span class="md-fence">${escapeHtml(line)}</span>`;
+    }
+
+    if (fence) {
+      return `<span class="md-code">${escapeHtml(line) || ' '}</span>`;
+    }
+
+    const escaped = escapeHtml(line);
+
+    if (/^ {0,3}#{1,6}(?:\s|$)/.test(line)) {
+      return `<span class="md-heading">${highlightMarkdownInline(escaped)}</span>`;
+    }
+
+    if (/^ {0,3}>/.test(line)) {
+      return `<span class="md-quote">${highlightMarkdownInline(escaped)}</span>`;
+    }
+
+    const listMatch = line.match(/^(\s*)([-+*]|\d+[.)])(\s+)(.*)$/);
+
+    if (listMatch) {
+      return `${escapeHtml(listMatch[1])}<span class="md-list-marker">${escapeHtml(listMatch[2])}</span>${escapeHtml(listMatch[3])}${highlightMarkdownInline(escapeHtml(listMatch[4]))}`;
+    }
+
+    return highlightMarkdownInline(escaped);
+  }).join('\n');
+}
+
+function updateEditorLayout(doc) {
+  const editor = elements.editor;
+  const shell = elements.editorShell;
+  const style = getComputedStyle(editor);
+
+  const paddingTop = parseFloat(style.paddingTop) || 0;
+  const paddingLeft = parseFloat(style.paddingLeft) || 0;
+  const paddingRight = parseFloat(style.paddingRight) || 0;
+  const lineHeight = parseFloat(style.lineHeight) || 22;
+
+  const editorRect = editor.getBoundingClientRect();
+  const shellRect = shell.getBoundingClientRect();
+
+  // Keep the highlight viewport aligned with the textarea's visible text area.
+  elements.highlightLayer.style.width = `${editor.clientWidth}px`;
+  elements.highlightLayer.scrollTop = editor.scrollTop;
+
+  // Match the gutter's font metrics and vertical padding to the textarea.
+  elements.lineNumbers.style.paddingTop = style.paddingTop;
+  elements.lineNumbers.style.paddingBottom = style.paddingBottom;
+  elements.lineNumbers.style.fontFamily = style.fontFamily;
+  elements.lineNumbers.style.fontSize = style.fontSize;
+  elements.lineNumbers.style.fontWeight = style.fontWeight;
+  elements.lineNumbers.style.lineHeight = style.lineHeight;
+
+  // Measure each logical line at the textarea's actual text width.
+  elements.lineMeasure.style.left = `${editorRect.left - shellRect.left + paddingLeft}px`;
+  elements.lineMeasure.style.top = `${editorRect.top - shellRect.top + paddingTop}px`;
+  elements.lineMeasure.style.width = `${Math.max(1, editor.clientWidth - paddingLeft - paddingRight)}px`;
+  elements.lineMeasure.style.fontFamily = style.fontFamily;
+  elements.lineMeasure.style.fontSize = style.fontSize;
+  elements.lineMeasure.style.fontWeight = style.fontWeight;
+  elements.lineMeasure.style.lineHeight = style.lineHeight;
+  elements.lineMeasure.style.letterSpacing = style.letterSpacing;
+  elements.lineMeasure.style.tabSize = style.tabSize;
+  elements.lineMeasure.style.whiteSpace = style.whiteSpace;
+  elements.lineMeasure.style.overflowWrap = style.overflowWrap;
+  elements.lineMeasure.style.wordBreak = style.wordBreak;
+
+  const measureFragment = document.createDocumentFragment();
+
+  doc.text.split('\n').forEach((line) => {
+    const row = document.createElement('div');
+    row.className = 'line-measure-row';
+    row.textContent = line || '\u200b';
+    measureFragment.append(row);
+  });
+
+  elements.lineMeasure.replaceChildren(measureFragment);
+
+  const numberFragment = document.createDocumentFragment();
+
+  [...elements.lineMeasure.children].forEach((row, index) => {
+    const number = document.createElement('div');
+    number.className = 'line-number';
+    number.textContent = String(index + 1);
+    number.style.height = `${Math.max(lineHeight, row.getBoundingClientRect().height)}px`;
+    numberFragment.append(number);
+  });
+
+  elements.lineNumbers.replaceChildren(numberFragment);
+  elements.lineNumbers.scrollTop = editor.scrollTop;
+}
+
 function renderHighlight(doc) {
   const [language] = languageForFilename(doc.filename);
   let html = escapeHtml(doc.text);
 
-  if (window.hljs && language !== 'plaintext' && window.hljs.getLanguage(language)) {
+  // Markdown highlighting is built in and does not depend on the CDN library.
+  if (language === 'markdown') {
+    html = highlightMarkdown(doc.text);
+  } else if (
+    window.hljs
+    && language !== 'plaintext'
+    && window.hljs.getLanguage(language)
+  ) {
     try {
-      html = window.hljs.highlight(doc.text, { language, ignoreIllegals: true }).value;
+      html = window.hljs.highlight(doc.text, {
+        language,
+        ignoreIllegals: true
+      }).value;
     } catch {
       html = escapeHtml(doc.text);
     }
   }
 
-  // A trailing space keeps the final line's height aligned with the textarea.
+  // Keep the final empty line when the document ends with a newline.
   elements.highlightCode.innerHTML = `${html} `;
   elements.highlightCode.className = `hljs language-${language}`;
-  elements.highlightLayer.scrollTop = elements.editor.scrollTop;
-  elements.highlightLayer.scrollLeft = elements.editor.scrollLeft;
+
+  updateEditorLayout(doc);
 }
 
 function renderTabs() {
@@ -439,6 +580,8 @@ function renderEditor() {
   if (!doc) {
     elements.editor.value = '';
     elements.highlightCode.textContent = '';
+    elements.lineNumbers.replaceChildren();
+    elements.lineMeasure.replaceChildren();
     elements.currentFilename.textContent = '';
     elements.documentState.textContent = '';
     elements.languageLabel.textContent = '';
@@ -585,7 +728,6 @@ function parseGistId(value) {
   return /^[a-f0-9]{20,64}$/i.test(candidate) ? candidate : null;
 }
 
-
 function openAddGistDialog(fromSettings = false) {
   returnToSettings = fromSettings;
 
@@ -704,8 +846,8 @@ function initializeDocumentFromFile(doc, file, gist, preserveLocal = false) {
     return;
   }
 
-  // Validate the remote payload before marking the document initialized. A failed
-  // first load must remain retryable when the tab is opened again.
+  // Validate the remote payload before marking the document initialized.
+  // A failed first load must remain retryable when the tab is opened again.
   if (file.truncated || file.content === null) {
     throw new Error(t('statusFileTruncated', { name: file.filename }));
   }
@@ -1021,7 +1163,7 @@ function saveCurrent() {
 
 function onEditorScroll() {
   elements.highlightLayer.scrollTop = elements.editor.scrollTop;
-  elements.highlightLayer.scrollLeft = elements.editor.scrollLeft;
+  elements.lineNumbers.scrollTop = elements.editor.scrollTop;
 }
 
 function insertTab() {
@@ -1333,6 +1475,20 @@ function bindEvents() {
     if (doc) persistDocument(doc);
   });
   elements.editor.addEventListener('keydown', onEditorKeydown);
+
+  const highlightScript = document.querySelector('#highlightScript');
+  const refreshHighlight = () => {
+    const doc = currentDocument();
+    if (doc) renderHighlight(doc);
+  };
+
+  if (window.hljs) {
+    refreshHighlight();
+  } else {
+    highlightScript?.addEventListener('load', refreshHighlight, { once: true });
+  }
+
+  window.addEventListener('resize', refreshHighlight);
 
   elements.tabs.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-action]');

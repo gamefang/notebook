@@ -41,7 +41,6 @@
     --editor-bg: #171722;
     --tab-bg: #242434;
   }
-
 }
 
 body {
@@ -342,8 +341,49 @@ button:disabled {
 
 .editor-shell {
   position: relative;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 380px;
+  overflow: hidden;
+  background: var(--editor-bg);
+}
+
+.line-numbers {
+  position: relative;
+  z-index: 3;
+  height: 100%;
+  padding: 19px 8px;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--editor-bg);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: var(--editor-font-size, 14px);
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  user-select: none;
+  scrollbar-width: none;
+}
+
+.line-numbers::-webkit-scrollbar {
+  display: none;
+}
+
+.line-number {
+  display: block;
+  min-height: 1.65em;
+  line-height: inherit;
+}
+
+.editor-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: var(--editor-bg);
 }
@@ -351,8 +391,8 @@ button:disabled {
 .highlight-layer,
 .editor {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 0;
+  left: 0;
   height: 100%;
   margin: 0;
   padding: 19px 22px;
@@ -365,13 +405,14 @@ button:disabled {
   line-height: 1.65;
   letter-spacing: 0;
   tab-size: var(--editor-tab-size, 4);
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 
 .highlight-layer {
   z-index: 1;
+  width: 100%;
   overflow: hidden;
   pointer-events: none;
   background: transparent;
@@ -384,13 +425,24 @@ button:disabled {
   background: transparent !important;
   font: inherit;
   line-height: inherit;
+  white-space: inherit;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+/* Keep highlighted text metrics aligned with the textarea. */
+.highlight-layer code * {
+  font-weight: inherit !important;
+  font-style: inherit !important;
 }
 
 .editor {
   z-index: 2;
   display: block;
+  width: 100%;
   resize: none;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
   background: transparent;
   color: transparent;
   caret-color: var(--text);
@@ -407,6 +459,29 @@ button:disabled {
 .editor::placeholder {
   color: var(--muted);
   -webkit-text-fill-color: var(--muted);
+}
+
+/* Hidden measuring rows keep line numbers aligned with wrapped text. */
+.line-measure {
+  position: absolute;
+  z-index: -1;
+  visibility: hidden;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.line-measure-row {
+  display: block;
+  min-height: 1.65em;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .editor-footer {
@@ -743,7 +818,6 @@ button:disabled {
   font-size: 9px;
 }
 
-
 .dialog-status {
   min-height: 18px;
   color: var(--muted);
@@ -827,6 +901,67 @@ button:disabled {
   clip-path: inset(50%);
 }
 
+/* Built-in Markdown highlighting */
+.md-heading {
+  color: #8250df;
+}
+
+.md-quote {
+  color: #6e7781;
+}
+
+.md-fence,
+.md-code,
+.md-inline-code {
+  color: #0550ae;
+}
+
+.md-list-marker {
+  color: #cf222e;
+}
+
+.md-strong {
+  color: #953800;
+}
+
+.md-emphasis {
+  color: #8250df;
+}
+
+.md-link {
+  color: #0969da;
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .md-heading,
+  .md-emphasis {
+    color: #d2a8ff;
+  }
+
+  .md-quote {
+    color: #8b949e;
+  }
+
+  .md-fence,
+  .md-code,
+  .md-inline-code {
+    color: #a5d6ff;
+  }
+
+  .md-list-marker {
+    color: #ff7b72;
+  }
+
+  .md-strong {
+    color: #ffa657;
+  }
+
+  .md-link {
+    color: #79c0ff;
+  }
+}
+
 @media (max-width: 760px) {
   body {
     padding: 10px;
@@ -882,6 +1017,10 @@ button:disabled {
     gap: 7px;
     padding-right: 9px;
     padding-left: 9px;
+  }
+
+  .editor-shell {
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .highlight-layer,
