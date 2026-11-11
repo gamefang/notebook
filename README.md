@@ -39,7 +39,7 @@ Or deploy the static project to a public web host, such as [GitHub Pages](https:
 2. Paste a Gist URL or ID and choose **Load files**. Select one or more existing files. To add a brand-new note, create the file in the Gist website first, then load the Gist again and register that file.
 3. Newly registered files are opened in tabs automatically when there is room. Click **＋** next to the tabs later to open any other registered file.
 
-### 5. Editing, Saving and Synchronization
+## Editing, Saving and Synchronization
 
 - Every text input is written synchronously to localStorage. The Save button explicitly flushes the current edit history and workspace state; it does not upload anything to GitHub.
 - Switching tabs, closing a tab, losing window focus, hiding the page, and leaving the page also flush local state.
@@ -53,14 +53,15 @@ Or deploy the static project to a public web host, such as [GitHub Pages](https:
 
 - Gist visibility: A Secret Gist is unlisted, not private. Anyone with its URL may be able to access its contents. Do not use it to store passwords, private notes, or other sensitive information.
 - Token security: The app stores its settings in your browser. A token saved in the browser may be accessible to someone who can access that browser profile or its local data. Do not share your token or use it on a device you do not trust.
-- Local storage: Local bookmark data is stored in the browser's local storage and is specific to the browser and website origin. Clearing browser data may remove the local copy.
+- Local storage: Local note data is stored in the browser's local storage and is specific to the browser and website origin. Clearing browser data may remove the local copy.
 - Sync carefully: When using multiple devices, pull and push deliberately. If different devices have made changes independently, pushing one device's data may overwrite the version currently stored in the Gist. Pulling also replaces the current local data.
 
 ## Technical Overview
 
 - Frontend: HTML, CSS, and vanilla JavaScript.
-- Storage: Browser `localStorage` for local bookmark data and settings.
+- Editor: CodeMirror 5.
+- Storage: Browser `localStorage` for local documents and settings.
 - Synchronization: GitHub Gist REST API.
 - Internationalization: Text is organized for data-driven language support.
-- Deployment: Static hosting; no dedicated application server is required.
+- Deployment: Static hosting; no dedicated application server or build step is required.
 - AI tools were used to assist with development.

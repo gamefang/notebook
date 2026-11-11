@@ -54,7 +54,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -341,147 +342,244 @@ button:disabled {
 
 .editor-shell {
   position: relative;
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  display: flex;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 380px;
   overflow: hidden;
   background: var(--editor-bg);
 }
 
-.line-numbers {
-  position: relative;
-  z-index: 3;
+/* CodeMirror handles text layout, selection, cursor, wrapping and line numbers. */
+.CodeMirror {
+  flex: 1 1 auto;
+  width: 100%;
   height: 100%;
-  padding: 19px 8px;
-  overflow: hidden;
-  border-right: 1px solid var(--border);
-  background: var(--editor-bg);
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: var(--editor-font-size, 14px);
-  font-weight: 400;
-  line-height: 1.65;
-  letter-spacing: 0;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: pre;
-  user-select: none;
-  scrollbar-width: none;
-}
-
-.line-numbers::-webkit-scrollbar {
-  display: none;
-}
-
-.line-number {
-  display: block;
-  min-height: 1.65em;
-  line-height: inherit;
-}
-
-.editor-stage {
-  position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
   background: var(--editor-bg);
-}
-
-.highlight-layer,
-.editor {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  margin: 0;
-  padding: 19px 22px;
-  border: 0;
-  border-radius: 0;
-  outline: 0;
+  color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: var(--editor-font-size, 14px);
   font-weight: 400;
   line-height: 1.65;
-  letter-spacing: 0;
+  letter-spacing: normal;
+  tab-size: var(--editor-tab-size, 4);
+}
+
+.CodeMirror-scroll {
+  min-height: 100%;
+}
+
+.CodeMirror-lines {
+  padding: 19px 0;
+}
+
+.CodeMirror pre.CodeMirror-line,
+.CodeMirror pre.CodeMirror-line-like {
+  padding: 0 22px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+.CodeMirror-gutters {
+  border-right: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.CodeMirror-linenumber {
+  padding: 0 9px 0 6px;
+  color: var(--muted);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
+.CodeMirror-cursor {
+  border-left: 1px solid var(--text) !important;
+}
+
+.CodeMirror-selected {
+  background: rgb(90 140 230 / 30%) !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+  background: rgb(90 140 230 / 36%) !important;
+}
+
+.CodeMirror-focused {
+  outline: 0;
+}
+
+.CodeMirror-scrollbar-filler,
+.CodeMirror-gutter-filler {
+  background: var(--editor-bg);
+}
+
+/* CodeMirror's built-in default syntax colors. */
+.cm-s-default .cm-keyword {
+  color: #d73a49;
+}
+
+.cm-s-default .cm-atom,
+.cm-s-default .cm-number {
+  color: #005cc5;
+}
+
+.cm-s-default .cm-def,
+.cm-s-default .cm-meta,
+.cm-s-default .cm-attribute {
+  color: #6f42c1;
+}
+
+.cm-s-default .cm-variable {
+  color: #24292e;
+}
+
+.cm-s-default .cm-variable-2,
+.cm-s-default .cm-builtin {
+  color: #e36209;
+}
+
+.cm-s-default .cm-variable-3,
+.cm-s-default .cm-property {
+  color: #005cc5;
+}
+
+.cm-s-default .cm-operator {
+  color: #d73a49;
+}
+
+.cm-s-default .cm-comment {
+  color: #6a737d;
+}
+
+.cm-s-default .cm-string,
+.cm-s-default .cm-string-2 {
+  color: #032f62;
+}
+
+.cm-s-default .cm-tag {
+  color: #22863a;
+}
+
+.cm-s-default .cm-qualifier {
+  color: #6f42c1;
+}
+
+.cm-s-default .cm-header {
+  color: #6f42c1;
+  font-weight: 650;
+}
+
+.cm-s-default .cm-quote {
+  color: #6a737d;
+}
+
+.cm-s-default .cm-link {
+  color: #0366d6;
+  text-decoration: underline;
+}
+
+.cm-s-default .cm-em {
+  font-style: italic;
+}
+
+.cm-s-default .cm-strong {
+  font-weight: 700;
+}
+
+.cm-s-default .cm-formatting {
+  color: #959da5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .CodeMirror {
+    color: #dddddd;
+  }
+
+  .CodeMirror-gutters {
+    background: #20202d;
+  }
+
+  .CodeMirror-scrollbar-filler,
+  .CodeMirror-gutter-filler {
+    background: var(--editor-bg);
+  }
+
+  .cm-s-default .cm-keyword,
+  .cm-s-default .cm-operator {
+    color: #ff7b72;
+  }
+
+  .cm-s-default .cm-atom,
+  .cm-s-default .cm-number,
+  .cm-s-default .cm-variable-3,
+  .cm-s-default .cm-property {
+    color: #79c0ff;
+  }
+
+  .cm-s-default .cm-def,
+  .cm-s-default .cm-meta,
+  .cm-s-default .cm-attribute,
+  .cm-s-default .cm-qualifier,
+  .cm-s-default .cm-header {
+    color: #d2a8ff;
+  }
+
+  .cm-s-default .cm-variable {
+    color: #e6edf3;
+  }
+
+  .cm-s-default .cm-variable-2,
+  .cm-s-default .cm-builtin {
+    color: #ffa657;
+  }
+
+  .cm-s-default .cm-comment,
+  .cm-s-default .cm-quote {
+    color: #8b949e;
+  }
+
+  .cm-s-default .cm-string,
+  .cm-s-default .cm-string-2 {
+    color: #a5d6ff;
+  }
+
+  .cm-s-default .cm-tag {
+    color: #7ee787;
+  }
+
+  .cm-s-default .cm-link {
+    color: #79c0ff;
+  }
+
+  .cm-s-default .cm-formatting {
+    color: #6e7681;
+  }
+}
+
+/* Plain textarea is only used when CodeMirror itself cannot be loaded. */
+#editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 19px 22px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: var(--editor-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: var(--editor-font-size, 14px);
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: normal;
   tab-size: var(--editor-tab-size, 4);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  word-break: normal;
-}
-
-.highlight-layer {
-  z-index: 1;
-  width: 100%;
-  overflow: hidden;
-  pointer-events: none;
-  background: transparent;
-}
-
-.highlight-layer code {
-  display: block;
-  min-height: 100%;
-  padding: 0;
-  background: transparent !important;
-  font: inherit;
-  line-height: inherit;
-  white-space: inherit;
-  overflow-wrap: inherit;
-  word-break: inherit;
-}
-
-/* Keep highlighted text metrics aligned with the textarea. */
-.highlight-layer code * {
-  font-weight: inherit !important;
-  font-style: inherit !important;
-}
-
-.editor {
-  z-index: 2;
-  display: block;
-  width: 100%;
-  resize: none;
-  overflow-x: hidden;
-  overflow-y: scroll;
-  background: transparent;
-  color: transparent;
-  caret-color: var(--text);
-  -webkit-text-fill-color: transparent;
-  scrollbar-color: var(--muted) transparent;
-  scrollbar-width: thin;
-}
-
-.editor::selection {
-  background: rgb(90 140 230 / 28%);
-  -webkit-text-fill-color: transparent;
-}
-
-.editor::placeholder {
-  color: var(--muted);
-  -webkit-text-fill-color: var(--muted);
-}
-
-/* Hidden measuring rows keep line numbers aligned with wrapped text. */
-.line-measure {
-  position: absolute;
-  z-index: -1;
-  visibility: hidden;
-  display: block;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  pointer-events: none;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: normal;
-}
-
-.line-measure-row {
-  display: block;
-  min-height: 1.65em;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
 
 .editor-footer {
@@ -593,7 +691,8 @@ button:disabled {
 }
 
 .dialog-form input,
-.dialog-form textarea {
+.dialog-form textarea,
+.dialog-select {
   width: 100%;
   min-height: 36px;
   padding: 8px 10px;
@@ -606,9 +705,25 @@ button:disabled {
 }
 
 .dialog-form input:focus,
-.dialog-form textarea:focus {
+.dialog-form textarea:focus,
+.dialog-select:focus {
   border-color: var(--accent);
   outline: 1px solid var(--accent);
+}
+
+.font-size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.font-size-row input {
+  width: 100px;
+}
+
+.font-size-row span {
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .field-hint {
@@ -668,15 +783,15 @@ button:disabled {
 
 .entry-table th:first-child,
 .entry-table td:first-child {
-  width: 34%;
+  width: 30%;
 }
 
 .entry-table th:last-child,
 .entry-table td:last-child {
-  width: 34px;
+  width: 112px;
   padding-right: 7px;
   padding-left: 3px;
-  text-align: center;
+  text-align: right;
 }
 
 .entry-filename,
@@ -699,6 +814,24 @@ button:disabled {
 
 .entry-gist-id:hover {
   text-decoration: underline;
+}
+
+.local-only-label {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.entry-actions .button {
+  min-height: 26px;
+  padding: 4px 7px;
+  font-size: 10px;
 }
 
 .icon-button {
@@ -732,12 +865,44 @@ button:disabled {
 
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
 
 .dialog-actions .button {
   flex: 1 1 auto;
+}
+
+.local-file-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.local-file-section[hidden] {
+  display: none;
+}
+
+.local-file-section .button {
+  align-self: flex-start;
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 5px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.section-divider::before,
+.section-divider::after {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+  content: "";
 }
 
 .input-action-row {
@@ -759,6 +924,10 @@ button:disabled {
   flex-direction: column;
   gap: 7px;
   margin-top: 5px;
+}
+
+.gist-file-picker[hidden] {
+  display: none;
 }
 
 .available-files {
@@ -901,67 +1070,6 @@ button:disabled {
   clip-path: inset(50%);
 }
 
-/* Built-in Markdown highlighting */
-.md-heading {
-  color: #8250df;
-}
-
-.md-quote {
-  color: #6e7781;
-}
-
-.md-fence,
-.md-code,
-.md-inline-code {
-  color: #0550ae;
-}
-
-.md-list-marker {
-  color: #cf222e;
-}
-
-.md-strong {
-  color: #953800;
-}
-
-.md-emphasis {
-  color: #8250df;
-}
-
-.md-link {
-  color: #0969da;
-  text-decoration: underline;
-}
-
-@media (prefers-color-scheme: dark) {
-  .md-heading,
-  .md-emphasis {
-    color: #d2a8ff;
-  }
-
-  .md-quote {
-    color: #8b949e;
-  }
-
-  .md-fence,
-  .md-code,
-  .md-inline-code {
-    color: #a5d6ff;
-  }
-
-  .md-list-marker {
-    color: #ff7b72;
-  }
-
-  .md-strong {
-    color: #ffa657;
-  }
-
-  .md-link {
-    color: #79c0ff;
-  }
-}
-
 @media (max-width: 760px) {
   body {
     padding: 10px;
@@ -1019,14 +1127,14 @@ button:disabled {
     padding-left: 9px;
   }
 
-  .editor-shell {
-    grid-template-columns: 42px minmax(0, 1fr);
+  .CodeMirror-lines {
+    padding: 14px 0;
   }
 
-  .highlight-layer,
-  .editor {
-    padding: 14px 12px;
-    font-size: 12px;
+  .CodeMirror pre.CodeMirror-line,
+  .CodeMirror pre.CodeMirror-line-like {
+    padding-right: 12px;
+    padding-left: 12px;
   }
 
   .dialog-form {
