@@ -41,6 +41,7 @@ const elements = {
   addGistTitle: document.querySelector('#addGistTitle'),
   addGistForm: document.querySelector('#addGistForm'),
   localFileSection: document.querySelector('#localFileSection'),
+  sectionDivider: document.querySelector('.section-divider'),
   localFilename: document.querySelector('#localFilenameInput'),
   createLocalFileButton: document.querySelector('#createLocalFileButton'),
   gistUrl: document.querySelector('#gistUrlInput'),
@@ -263,10 +264,10 @@ function setDialogStatus(message, type = '') {
 
 function setBusy(value) {
   isBusy = value;
-  const hasLinkedDocuments = settings.entries.some((entry) => entry.gistId);
+  const hasCurrentLinkedDocument = Boolean(currentDocument()?.gistId);
 
-  elements.pullButton.disabled = value || !hasLinkedDocuments;
-  elements.pushButton.disabled = value || !hasLinkedDocuments;
+  elements.pullButton.disabled = value || !hasCurrentLinkedDocument;
+  elements.pushButton.disabled = value || !hasCurrentLinkedDocument;
   elements.loadGistButton.disabled = value;
   elements.addSelectedButton.disabled = value || !addGistResult;
   elements.settingsButton.disabled = value;
@@ -391,7 +392,23 @@ function updateEditorMode(doc) {
   if (!editorView) return;
 
   const [mode] = languageForFilename(doc.filename);
-  editorView.setOption('mode', mode);
+
+  try {
+    if (
+      mode?.name === 'gfm'
+      && typeof window.CodeMirror.overlayMode !== 'function'
+    ) {
+      throw new Error('CodeMirror GFM overlay addon is not loaded.');
+    }
+
+    editorView.setOption('mode', mode);
+  } catch (error) {
+    if (mode?.name !== 'gfm') throw error;
+
+    // Keep ordinary Markdown highlighting available if the GFM overlay fails.
+    console.error('CodeMirror GFM mode unavailable; using Markdown mode:', error);
+    editorView.setOption('mode', 'text/x-markdown');
+  }
 }
 
 function initializeEditor() {
@@ -419,6 +436,14 @@ function initializeEditor() {
         'Cmd-Y': () => redo(),
         'Shift-Ctrl-Z': () => redo(),
         'Cmd-Shift-Z': () => redo(),
+        'Ctrl-A': (cm) => cm.execCommand('selectAll'),
+        'Cmd-A': (cm) => cm.execCommand('selectAll'),
+        Backspace: (cm) => cm.somethingSelected()
+          ? cm.replaceSelection('', 'start', '+delete')
+          : cm.execCommand('delCharBefore'),
+        Delete: (cm) => cm.somethingSelected()
+          ? cm.replaceSelection('', 'start', '+delete')
+          : cm.execCommand('delCharAfter'),
         Tab: (cm) => cm.replaceSelection(
           ' '.repeat(config.editor.tabSize),
           'end',
@@ -465,13 +490,13 @@ function trimHistory(doc, stackName) {
 
 function updateToolbarState() {
   const doc = currentDocument();
-  const hasLinkedDocuments = settings.entries.some((entry) => entry.gistId);
+  const hasCurrentLinkedDocument = Boolean(doc?.gistId);
 
   elements.undoButton.disabled = !doc || doc.history.undo.length === 0;
   elements.redoButton.disabled = !doc || doc.history.redo.length === 0;
   elements.saveButton.disabled = !doc;
-  elements.pullButton.disabled = isBusy || !hasLinkedDocuments;
-  elements.pushButton.disabled = isBusy || !hasLinkedDocuments;
+  elements.pullButton.disabled = isBusy || !hasCurrentLinkedDocument;
+  elements.pushButton.disabled = isBusy || !hasCurrentLinkedDocument;
 }
 
 function updateDocumentInfo(doc) {
@@ -791,6 +816,7 @@ function openAddGistDialog(fromSettings = false, documentId = null) {
   elements.availableFiles.replaceChildren();
   elements.gistFilePicker.hidden = true;
   elements.localFileSection.hidden = Boolean(linkingDocumentId);
+  elements.sectionDivider.hidden = Boolean(linkingDocumentId);
   elements.gistUrl.disabled = false;
   elements.loadGistButton.disabled = false;
   elements.addSelectedButton.disabled = true;
@@ -807,15 +833,15 @@ function openAddGistDialog(fromSettings = false, documentId = null) {
   elements.gistUrl.focus();
 }
 
-function closeAddGistDialog() {
+function closeAddGistDialog(restoreSettings = true) {
   elements.addGistDialog.close();
   addGistResult = null;
   linkingDocumentId = null;
 
-  if (returnToSettings) {
-    returnToSettings = false;
-    openSettings();
-  }
+  const shouldRestoreSettings = returnToSettings && restoreSettings;
+  returnToSettings = false;
+
+  if (shouldRestoreSettings) openSettings();
 }
 
 function createLocalFile() {
@@ -890,7 +916,7 @@ function createLocalFile() {
   renderSettingsEntries();
   render();
   updateToolbarState();
-  closeAddGistDialog();
+  closeAddGistDialog(false);
 
   setStatus(
     !saved
@@ -915,6 +941,7 @@ async function loadGistFiles() {
   elements.gistFilePicker.hidden = true;
   elements.availableFiles.replaceChildren();
   elements.localFileSection.hidden = true;
+  elements.sectionDivider.hidden = true;
   elements.gistUrl.disabled = true;
   elements.loadGistButton.disabled = true;
   elements.addSelectedButton.disabled = true;
@@ -951,8 +978,8 @@ async function loadGistFiles() {
       const info = document.createElement('span');
       info.className = 'gist-file-info';
 
-      const filename = document.createElement('strong');
-      filename.textContent = file.filename;
+      const filenameElement = document.createElement('strong');
+      filenameElement.textContent = file.filename;
 
       const metadata = document.createElement('small');
       metadata.textContent = file.truncated || file.content === null
@@ -963,7 +990,7 @@ async function loadGistFiles() {
           })
           : formatBytes(file.size || byteSize(file.content)));
 
-      info.append(filename, metadata);
+      info.append(filenameElement, metadata);
       label.append(checkbox, info);
       elements.availableFiles.append(label);
     });
@@ -978,6 +1005,7 @@ async function loadGistFiles() {
   } catch (error) {
     addGistResult = null;
     elements.localFileSection.hidden = Boolean(linkingDocumentId);
+    elements.sectionDivider.hidden = Boolean(linkingDocumentId);
 
     setDialogStatus(
       error?.message || t('errorGistNotFound'),
@@ -1113,7 +1141,7 @@ function addSelectedGistFiles(event) {
     renderSettingsEntries();
     render();
     updateToolbarState();
-    closeAddGistDialog();
+    closeAddGistDialog(false);
 
     setStatus(
       saved
@@ -1208,7 +1236,7 @@ function addSelectedGistFiles(event) {
   renderSettingsEntries();
   render();
   updateToolbarState();
-  closeAddGistDialog();
+  closeAddGistDialog(false);
 
   setStatus(
     workspaceSaved ? statusMessage : t('statusSaveFailed'),
@@ -1522,87 +1550,77 @@ function getRemoteContent(gist, filename) {
 async function pullAll() {
   if (isBusy) return;
 
-  const linkedEntries = settings.entries.filter((entry) => entry.gistId);
+  const doc = currentDocument();
+  if (!doc) return;
 
-  if (!linkedEntries.length) {
-    setStatus(t('statusNoLinkedFiles'));
+  const entry = settings.entries.find((item) => item.id === doc.id);
+  if (!entry?.gistId) {
+    setStatus(t('statusCurrentFileNotLinked'), 'warning');
     return;
   }
 
   flushHistoryGroup();
   saveWorkspace();
-  setBusy(true);
-  setStatus(t('statusPulling'));
 
-  const startRevisions = new Map(linkedEntries.map((entry) => [
-    entry.id,
-    documents.get(entry.id)?.revision ?? 0
-  ]));
+  const startRevision = doc.revision;
+  setBusy(true);
+  setStatus(t('statusPullCurrent', { name: doc.filename }));
 
   try {
-    const gists = await fetchGists(linkedEntries.map((entry) => entry.gistId));
-    const incoming = [];
-    const missing = [];
+    const gist = await GistService.readGist(entry.gistId, settings.token);
+    const remoteFilename = getRemoteFilename(entry);
+    const remote = getRemoteContent(gist, remoteFilename);
 
-    for (const entry of linkedEntries) {
-      const doc = documents.get(entry.id);
-      const gist = gists.get(entry.gistId);
-      const remote = getRemoteContent(gist, getRemoteFilename(entry));
-
-      if (!remote.exists) {
-        missing.push(entry.filename);
-        doc.exists = false;
-        doc.initialized = true;
-        doc.updatedAt = gist.updatedAt;
-        continue;
-      }
-
-      incoming.push({
-        entry,
-        doc,
-        gist,
-        content: remote.content
-      });
+    if (doc.revision !== startRevision) {
+      throw new Error(t('errorLocalChangedDuringPull'));
     }
 
-    for (const item of incoming) {
-      if (item.doc.revision !== startRevisions.get(item.entry.id)) {
-        throw new Error(t('errorLocalChangedDuringPull'));
-      }
-    }
-
-    const localEdits = incoming.filter(({ doc }) => isDocumentDirty(doc));
-
-    if (localEdits.length) {
-      const names = localEdits.map(({ entry }) => entry.filename).join(', ');
-
-      if (!window.confirm(t('statusPullConflict', { files: names }))) {
-        setStatus(t('statusSyncCancelled'));
-        return;
-      }
-    }
-
-    incoming.forEach(({ doc, content, gist }) => {
-      doc.text = content;
-      doc.baseContent = content;
-      doc.exists = true;
+    if (!remote.exists) {
+      doc.exists = false;
       doc.initialized = true;
       doc.updatedAt = gist.updatedAt;
-      doc.revision += 1;
-      doc.externalChange = false;
-      doc.history = { undo: [], redo: [] };
-    });
+
+      const saved = persistDocument(doc);
+      render();
+
+      setStatus(
+        saved
+          ? t('statusPullMissing', { name: doc.filename, remote: remoteFilename })
+          : t('statusSaveFailed'),
+        saved ? 'warning' : 'error'
+      );
+      return;
+    }
+
+    if (
+      isDocumentDirty(doc)
+      && !window.confirm(t('statusPullConflict', {
+        name: doc.filename,
+        remote: remoteFilename
+      }))
+    ) {
+      setStatus(t('statusSyncCancelled'));
+      return;
+    }
+
+    doc.text = remote.content;
+    doc.baseContent = remote.content;
+    doc.exists = true;
+    doc.initialized = true;
+    doc.updatedAt = gist.updatedAt;
+    doc.revision += 1;
+    doc.externalChange = false;
+    doc.history = { undo: [], redo: [] };
 
     const saved = saveWorkspace();
     render();
 
-    let message = t('statusPullSuccess', { count: incoming.length });
-
-    if (missing.length) {
-      message += ` ${t('statusPullMissing', { files: missing.join(', ') })}`;
-    }
-
-    setStatus(saved ? message : t('statusSaveFailed'), saved ? 'success' : 'error');
+    setStatus(
+      saved
+        ? t('statusPullSuccess', { name: doc.filename })
+        : t('statusSaveFailed'),
+      saved ? 'success' : 'error'
+    );
   } catch (error) {
     setStatus(
       t('statusPullFailed', { error: error?.message || t('unknownError') }),
@@ -1617,10 +1635,12 @@ async function pullAll() {
 async function pushAll() {
   if (isBusy) return;
 
-  const linkedEntries = settings.entries.filter((entry) => entry.gistId);
+  const doc = currentDocument();
+  if (!doc) return;
 
-  if (!linkedEntries.length) {
-    setStatus(t('statusNoLinkedFiles'));
+  const entry = settings.entries.find((item) => item.id === doc.id);
+  if (!entry?.gistId) {
+    setStatus(t('statusCurrentFileNotLinked'), 'warning');
     return;
   }
 
@@ -1632,97 +1652,78 @@ async function pushAll() {
   flushHistoryGroup();
   saveWorkspace();
 
-  const dirtyEntries = linkedEntries.filter((entry) => {
-    const doc = documents.get(entry.id);
-    return doc && isDocumentDirty(doc);
-  });
-
-  if (!dirtyEntries.length) {
-    setStatus(t('statusNoPushChanges'), 'success');
+  if (!isDocumentDirty(doc)) {
+    setStatus(t('statusNoPushChanges', { name: doc.filename }), 'success');
     return;
   }
 
+  const snapshot = doc.text;
+  const startRevision = doc.revision;
+  const remoteFilename = getRemoteFilename(entry);
+
   setBusy(true);
-  setStatus(t('statusPushing'));
+  setStatus(t('statusPushCurrent', { name: doc.filename }));
 
   try {
-    const gists = await fetchGists(dirtyEntries.map((entry) => entry.gistId));
-    const conflicts = [];
-    const missing = [];
-    const snapshots = new Map();
+    const gist = await GistService.readGist(entry.gistId, settings.token);
+    const remote = getRemoteContent(gist, remoteFilename);
 
-    for (const entry of dirtyEntries) {
-      const doc = documents.get(entry.id);
-      const gist = gists.get(entry.gistId);
-      const remote = getRemoteContent(gist, getRemoteFilename(entry));
-
-      if (!remote.exists) {
-        missing.push(entry.filename);
-        doc.exists = false;
-        doc.initialized = true;
-        doc.updatedAt = gist.updatedAt;
-        continue;
-      }
-
-      if (remote.content !== doc.baseContent) {
-        conflicts.push(entry.filename);
-      }
-
-      snapshots.set(entry.id, doc.text);
+    if (doc.revision !== startRevision) {
+      throw new Error(t('errorLocalChangedDuringPush'));
     }
 
-    if (missing.length) {
-      throw new Error(t('statusPushMissing', { files: missing.join(', ') }));
-    }
-
-    if (conflicts.length) {
-      const names = conflicts.join(', ');
-
-      if (!window.confirm(t('statusPushConflict', { files: names }))) {
-        setStatus(t('statusSyncCancelled'));
-        return;
-      }
-    }
-
-    const grouped = new Map();
-
-    dirtyEntries.forEach((entry) => {
-      if (!grouped.has(entry.gistId)) grouped.set(entry.gistId, {});
-      grouped.get(entry.gistId)[getRemoteFilename(entry)] = snapshots.get(entry.id);
-    });
-
-    const results = await Promise.all([...grouped.entries()].map(async ([gistId, files]) => [
-      gistId,
-      await GistService.writeFiles(gistId, settings.token, files)
-    ]));
-
-    const resultByGist = new Map(results);
-
-    dirtyEntries.forEach((entry) => {
-      const doc = documents.get(entry.id);
-      const pushedText = snapshots.get(entry.id);
-
-      doc.baseContent = pushedText;
-      doc.exists = true;
+    if (!remote.exists) {
+      doc.exists = false;
       doc.initialized = true;
-      doc.updatedAt = resultByGist.get(entry.gistId)?.updated_at ?? doc.updatedAt;
-      doc.externalChange = false;
-    });
+      doc.updatedAt = gist.updatedAt;
+
+      const saved = persistDocument(doc);
+      render();
+
+      setStatus(
+        saved
+          ? t('statusPushMissing', { name: doc.filename, remote: remoteFilename })
+          : t('statusSaveFailed'),
+        saved ? 'warning' : 'error'
+      );
+      return;
+    }
+
+    if (
+      remote.content !== doc.baseContent
+      && !window.confirm(t('statusPushConflict', {
+        name: doc.filename,
+        remote: remoteFilename
+      }))
+    ) {
+      setStatus(t('statusSyncCancelled'));
+      return;
+    }
+
+    const updatedGist = await GistService.writeFiles(
+      entry.gistId,
+      settings.token,
+      { [remoteFilename]: snapshot }
+    );
+
+    // Keep edits made while the request was in flight. Only advance the sync base.
+    doc.baseContent = snapshot;
+    doc.exists = true;
+    doc.initialized = true;
+    doc.updatedAt = updatedGist?.updated_at ?? doc.updatedAt;
+    doc.externalChange = false;
 
     const saved = saveWorkspace();
-    render();
+    const hasNewerEdits = doc.text !== snapshot;
 
-    const hasNewerEdits = dirtyEntries.some((entry) => {
-      const doc = documents.get(entry.id);
-      return doc.text !== snapshots.get(entry.id);
-    });
+    render();
 
     setStatus(
       !saved
         ? t('statusSaveFailed')
         : (hasNewerEdits
           ? t('statusPushOutdated')
-          : t('statusPushSuccess', { count: dirtyEntries.length })),
+          : t('statusPushSuccess', { name: doc.filename })),
       !saved ? 'error' : (hasNewerEdits ? 'warning' : 'success')
     );
   } catch (error) {

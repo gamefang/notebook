@@ -905,6 +905,10 @@ button:disabled {
   content: "";
 }
 
+.section-divider[hidden] {
+  display: none;
+}
+
 .input-action-row {
   display: flex;
   gap: 7px;
