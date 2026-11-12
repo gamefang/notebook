@@ -43,6 +43,47 @@ function createAuthHeaders(token) {
 }
 
 export const GistService = Object.freeze({
+  // Lists every Gist owned by the authenticated user, including Secret Gists.
+  // GitHub returns at most 100 Gists per page.
+  async listGists(token) {
+    if (!token) throw new GistServiceError('errorTokenRequired');
+
+    const gists = [];
+    let page = 1;
+
+    while (true) {
+      const batch = await request(
+        `${GITHUB_API}/gists?per_page=100&page=${page}`,
+        {
+          headers: createAuthHeaders(token)
+        }
+      );
+
+      if (!Array.isArray(batch)) {
+        throw new GistServiceError('GitHub returned an invalid Gist list.');
+      }
+
+      gists.push(...batch.map((gist) => ({
+        id: gist.id,
+        description: gist.description ?? '',
+        htmlUrl: gist.html_url ?? `https://gist.github.com/${gist.id}`,
+        public: Boolean(gist.public),
+        updatedAt: gist.updated_at ?? null,
+        files: Object.entries(gist.files ?? {}).map(([filename, file]) => ({
+          // Use the original filename returned by GitHub without modification.
+          filename,
+          size: Number(file.size ?? 0),
+          language: file.language ?? ''
+        }))
+      })));
+
+      if (batch.length < 100) break;
+      page += 1;
+    }
+
+    return gists;
+  },
+
   async readGist(gistId, token = '') {
     if (!gistId) throw new GistServiceError('errorGistIdRequired');
 

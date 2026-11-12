@@ -315,6 +315,62 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 
+.editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 32px;
+  gap: 5px;
+  padding: 3px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.editor-toolbar-group,
+.editor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.editor-toolbar-actions {
+  min-width: 0;
+}
+
+.editor-tool-button {
+  display: inline-flex;
+  flex: 0 0 27px;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 25px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1;
+}
+
+.editor-tool-button:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.editor-tool-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
 .current-filename {
   flex: 1 1 auto;
   min-width: 0;
@@ -416,6 +472,11 @@ button:disabled {
 .CodeMirror-scrollbar-filler,
 .CodeMirror-gutter-filler {
   background: var(--editor-bg);
+}
+
+.CodeMirror-activeline-background,
+.CodeMirror-activeline-gutter {
+  background: var(--accent-soft);
 }
 
 /* CodeMirror's built-in default syntax colors. */
@@ -923,6 +984,11 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+.gist-browser-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .gist-file-picker {
   display: flex;
   flex-direction: column;
@@ -961,7 +1027,8 @@ button:disabled {
   background: var(--surface-raised);
 }
 
-.gist-file-option input[type="checkbox"] {
+.gist-file-option input[type="checkbox"],
+.gist-file-option input[type="radio"] {
   flex: 0 0 auto;
   width: 15px;
   min-height: 15px;

@@ -24,8 +24,8 @@
         "documentTitle": "Notebook",
         "appTitle": "Notebook",
         "toolbarLabel": "Notebook toolbar",
-        "undoButton": "↶ Undo",
-        "redoButton": "↷ Redo",
+        "undoButton": "↶",
+        "redoButton": "↷",
         "saveButton": "Save",
         "pullButton": "↓ Pull",
         "pushButton": "↑ Push",
@@ -124,7 +124,7 @@
         "errorSelectOneGistFile": "Select exactly one Gist file to link.",
         "errorLocalDocumentUnavailable": "This local document is no longer available.",
         "errorGistFileAlreadyLinked": "That Gist file is already linked to another document.",
-        "errorTokenRequired": "A GitHub token is required to push changes.",
+        "errorTokenRequired": "A GitHub token is required for this action.",
         "errorTitleRequired": "Enter a page title.",
         "errorEditorFontSize": "Choose a font size between 8 and 72 pixels.",
         "errorLocalChangedDuringPull": "Local content changed while Pull was running. The remote data was not applied.",
@@ -146,7 +146,16 @@
         "saveLocalOnlyHint": "Save stores this note in this browser. Push syncs linked notes to GitHub.",
         "storageWarning": "Browser storage is limited. Keep important notes synced and maintain a backup.",
         "statusEditorFallback": "CodeMirror could not be loaded. The editor is using the basic text area without syntax highlighting or line numbers.",
-        "unknownError": "Unknown error"
+        "unknownError": "Unknown error",
+        "editorToolbarLabel": "Editor toolbar",
+        "browseMyGistsButton": "Browse my Gists",
+        "yourGistFilesLabel": "Your Gist files",
+        "gistPublicLabel": "Public",
+        "gistSecretLabel": "Secret",
+        "statusListingGists": "Loading your Gists…",
+        "statusMyGistsLoaded": "Loaded {count} Gist file(s). Select one file to add.",
+        "statusNoGists": "No Gist files were found in this account.",
+        "statusReadingSelectedGist": "Reading the selected Gist file…"
       }
     }
   },

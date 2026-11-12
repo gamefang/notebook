@@ -46,6 +46,7 @@ const elements = {
   createLocalFileButton: document.querySelector('#createLocalFileButton'),
   gistUrl: document.querySelector('#gistUrlInput'),
   loadGistButton: document.querySelector('#loadGistButton'),
+  browseMyGistsButton: document.querySelector('#browseMyGistsButton'),
   gistFilePicker: document.querySelector('#gistFilePicker'),
   availableFiles: document.querySelector('#availableFiles'),
   addGistStatus: document.querySelector('#addGistStatus'),
@@ -269,6 +270,7 @@ function setBusy(value) {
   elements.pullButton.disabled = value || !hasCurrentLinkedDocument;
   elements.pushButton.disabled = value || !hasCurrentLinkedDocument;
   elements.loadGistButton.disabled = value;
+  elements.browseMyGistsButton.disabled = value || !currentToken();
   elements.addSelectedButton.disabled = value || !addGistResult;
   elements.settingsButton.disabled = value;
   elements.newTabButton.disabled = value;
@@ -420,6 +422,11 @@ function initializeEditor() {
       theme: 'default',
       lineNumbers: true,
       lineWrapping: true,
+      matchBrackets: true,
+      autoCloseBrackets: true,
+      styleActiveLine: true,
+      foldGutter: true,
+      gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
       tabSize: config.editor.tabSize,
       indentUnit: config.editor.tabSize,
       indentWithTabs: false,
@@ -428,6 +435,17 @@ function initializeEditor() {
       autocorrect: 'off',
       autocapitalize: 'off',
       extraKeys: {
+        'Ctrl-F': 'findPersistent',
+        'Cmd-F': 'findPersistent',
+        'Ctrl-H': 'replace',
+        'Shift-Ctrl-F': 'replace',
+        'Cmd-Alt-F': 'replace',
+        'Ctrl-G': 'findNext',
+        'Cmd-G': 'findNext',
+        'Shift-Ctrl-G': 'findPrev',
+        'Shift-Cmd-G': 'findPrev',
+        'Ctrl-Q': (cm) => cm.foldCode(cm.getCursor()),
+        'Cmd-Alt-Q': (cm) => cm.foldCode(cm.getCursor()),
         'Ctrl-S': () => saveCurrent(),
         'Cmd-S': () => saveCurrent(),
         'Ctrl-Z': () => undo(),
@@ -797,6 +815,10 @@ function parseGistId(value) {
   return /^[a-f0-9]{20,64}$/i.test(candidate) ? candidate : null;
 }
 
+function currentToken() {
+  return settingsDraft?.token?.trim() || settings.token;
+}
+
 function openAddGistDialog(fromSettings = false, documentId = null) {
   returnToSettings = fromSettings;
   linkingDocumentId = documentId;
@@ -820,6 +842,8 @@ function openAddGistDialog(fromSettings = false, documentId = null) {
   elements.gistUrl.disabled = false;
   elements.loadGistButton.disabled = false;
   elements.addSelectedButton.disabled = true;
+  elements.browseMyGistsButton.disabled = !currentToken();
+  elements.gistFilePicker.querySelector('label').textContent = t('availableFilesLabel');
 
   elements.addGistTitle.textContent = linkingDocumentId
     ? t('linkGistTitle')
@@ -940,6 +964,7 @@ async function loadGistFiles() {
   addGistResult = null;
   elements.gistFilePicker.hidden = true;
   elements.availableFiles.replaceChildren();
+  elements.gistFilePicker.querySelector('label').textContent = t('availableFilesLabel');
   elements.localFileSection.hidden = true;
   elements.sectionDivider.hidden = true;
   elements.gistUrl.disabled = true;
@@ -948,10 +973,7 @@ async function loadGistFiles() {
   setDialogStatus(t('statusPulling'));
 
   try {
-    const gist = await GistService.readGist(
-      gistId,
-      settingsDraft?.token?.trim() || settings.token
-    );
+    const gist = await GistService.readGist(gistId, currentToken());
 
     if (!gist.files.length) {
       throw new Error(t('errorGistFilesEmpty'));
@@ -1018,6 +1040,95 @@ async function loadGistFiles() {
   }
 }
 
+async function browseMyGists() {
+  const token = currentToken();
+
+  if (!token) {
+    setDialogStatus(t('errorTokenRequired'), 'error');
+    return;
+  }
+
+  addGistResult = null;
+  elements.gistUrl.disabled = false;
+  elements.gistFilePicker.hidden = true;
+  elements.availableFiles.replaceChildren();
+  elements.gistFilePicker.querySelector('label').textContent = t('yourGistFilesLabel');
+  elements.localFileSection.hidden = true;
+  elements.sectionDivider.hidden = true;
+  elements.browseMyGistsButton.disabled = true;
+  elements.loadGistButton.disabled = true;
+  elements.addSelectedButton.disabled = true;
+  setDialogStatus(t('statusListingGists'));
+
+  try {
+    const gists = await GistService.listGists(token);
+    const files = gists.flatMap((gist) => gist.files.map((file) => ({
+      gistId: gist.id,
+      description: gist.description,
+      public: gist.public,
+      filename: file.filename,
+      size: file.size,
+      language: file.language
+    })));
+
+    if (!files.length) {
+      elements.localFileSection.hidden = Boolean(linkingDocumentId);
+      elements.sectionDivider.hidden = Boolean(linkingDocumentId);
+      setDialogStatus(t('statusNoGists'));
+      return;
+    }
+
+    files.forEach((file) => {
+      const label = document.createElement('label');
+      label.className = 'gist-file-option';
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'myGistFile';
+      radio.value = file.filename;
+      radio.dataset.gistId = file.gistId;
+      radio.dataset.filename = file.filename;
+
+      const info = document.createElement('span');
+      info.className = 'gist-file-info';
+
+      const filename = document.createElement('strong');
+      filename.textContent = file.filename;
+
+      const metadata = document.createElement('small');
+      const description = file.description || file.gistId;
+      const visibility = file.public
+        ? t('gistPublicLabel')
+        : t('gistSecretLabel');
+      const size = file.size ? formatBytes(file.size) : '';
+      metadata.textContent = [description, visibility, size]
+        .filter(Boolean)
+        .join(' · ');
+
+      info.append(filename, metadata);
+      label.append(radio, info);
+      elements.availableFiles.append(label);
+    });
+
+    elements.gistFilePicker.hidden = false;
+    elements.addSelectedButton.disabled = false;
+    setDialogStatus(
+      t('statusMyGistsLoaded', { count: files.length }),
+      'success'
+    );
+  } catch (error) {
+    elements.localFileSection.hidden = Boolean(linkingDocumentId);
+    elements.sectionDivider.hidden = Boolean(linkingDocumentId);
+    setDialogStatus(
+      error?.message || t('errorGistNotFound'),
+      'error'
+    );
+  } finally {
+    elements.browseMyGistsButton.disabled = !currentToken();
+    elements.loadGistButton.disabled = false;
+  }
+}
+
 function getGistFile(gist, filename) {
   return gist?.files?.find((file) => file.filename === filename) ?? null;
 }
@@ -1061,20 +1172,48 @@ function initializeDocumentFromFile(doc, file, gist, preserveLocal = false) {
   doc.exists = true;
 }
 
-function addSelectedGistFiles(event) {
+async function addSelectedGistFiles(event) {
   event.preventDefault();
 
-  if (!addGistResult) {
-    setDialogStatus(t('errorGistIdRequired'), 'error');
+  const selectedInputs = [
+    ...elements.availableFiles.querySelectorAll(
+      'input[type="checkbox"]:checked, input[type="radio"]:checked'
+    )
+  ];
+
+  if (!selectedInputs.length) {
+    setDialogStatus(t('errorFilenameRequired'), 'error');
     return;
   }
 
-  const selectedNames = [
-    ...elements.availableFiles.querySelectorAll('input[type="checkbox"]:checked')
-  ].map((input) => input.value);
+  const selectedGistId = selectedInputs[0].dataset.gistId || '';
+  const selectedNames = selectedInputs.map((input) => input.value);
 
-  if (!selectedNames.length) {
-    setDialogStatus(t('errorFilenameRequired'), 'error');
+  if (selectedGistId) {
+    if (selectedInputs.length !== 1) {
+      setDialogStatus(t('errorSelectOneGistFile'), 'error');
+      return;
+    }
+
+    elements.addSelectedButton.disabled = true;
+    setDialogStatus(t('statusReadingSelectedGist'));
+
+    try {
+      addGistResult = await GistService.readGist(selectedGistId, currentToken());
+    } catch (error) {
+      setDialogStatus(
+        error?.message || t('errorGistNotFound'),
+        'error'
+      );
+      elements.addSelectedButton.disabled = false;
+      return;
+    }
+
+    elements.addSelectedButton.disabled = false;
+  }
+
+  if (!addGistResult) {
+    setDialogStatus(t('errorGistIdRequired'), 'error');
     return;
   }
 
@@ -1122,13 +1261,15 @@ function addSelectedGistFiles(event) {
       return;
     }
 
-    // Keep the local ID, filename, text and history.
+    // Keep the local ID, text and history, but mirror GitHub's exact filename.
     // Only attach the remote Gist identity and its current base content.
     entry.gistId = addGistResult.id;
     entry.gistFilename = remoteFilename;
+    entry.filename = remoteFilename;
 
     doc.gistId = addGistResult.id;
     doc.gistFilename = remoteFilename;
+    doc.filename = remoteFilename;
     doc.baseContent = file.content;
     doc.exists = true;
     doc.initialized = true;
@@ -1870,6 +2011,7 @@ function bindEvents() {
 
   elements.createLocalFileButton.addEventListener('click', createLocalFile);
   elements.loadGistButton.addEventListener('click', loadGistFiles);
+  elements.browseMyGistsButton.addEventListener('click', browseMyGists);
   elements.addGistForm.addEventListener('submit', addSelectedGistFiles);
   elements.closeAddGistButton.addEventListener('click', closeAddGistDialog);
   elements.cancelAddGistButton.addEventListener('click', closeAddGistDialog);

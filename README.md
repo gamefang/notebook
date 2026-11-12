@@ -8,8 +8,8 @@ A lightweight, static, cross-platform text notebook that stores notes in GitHub 
 - Syntax highlighting based on file extension.
 - Undo and redo history per file. Typing is grouped into short editing sessions to avoid creating one history entry per keystroke.
 - Immediate local persistence on each editor input, plus persistence on blur, tab changes, page hiding, and page exit.
-- Pull and Push cover every registered file, including files that are not currently open.
-- One Gist can register multiple files. The filename is discovered from the Gist API after entering its URL or ID; no GitHub username is needed.
+- Pull and Push act only on the currently active document.
+- Add a file by pasting a Gist URL/ID or browsing all Gists owned by the authenticated account, including Secret Gists. Each registered document keeps the exact filename used by GitHub.
 
 ## Getting Started
 
@@ -46,8 +46,8 @@ Or deploy the static project to a public web host, such as [GitHub Pages](https:
 - Undo/redo history is stored with each note and grouped by a 650 ms typing pause.
 - Closing a tab does not delete its local copy or history. Removing a Gist file from Settings deletes that file's local cache and history after confirmation.
 - The current defaults allow 8 open tabs and 16 registered files. A note is limited to 32 KiB of UTF-8 text; each undo/redo stack is limited to 30 snapshots and approximately 8 KiB (a single snapshot is retained even when it is larger). These limits can be adjusted in `config.json`.
-- **Pull** fetches all registered Gists and updates all registered local files. If any target file has local edits, the app asks before replacing those edits. Files that no longer exist remotely are left unchanged and listed in the status message.
-- **Push** first fetches the current remote versions. It only uploads files with local changes. If a remote file differs from its stored `baseContent`, the app asks before overwriting the newer remote version. Files in the same Gist are sent in one PATCH request. If a registered file has been deleted remotely, Push stops and asks you to recreate that file in GitHub before retrying. The app updates existing Gist files; it does not create or delete remote files. This follows GitHub's Gist update API, whose file keys identify existing remote filenames.
+- **Pull** fetches the currently active document's Gist and updates only that local document. If it has local edits, the app asks before replacing them. If the remote file no longer exists, local contents are left unchanged.
+- **Push** checks the currently active document's remote version and uploads it only when local changes exist. If the remote file differs from its stored `baseContent`, the app asks before overwriting it. If the file has been deleted remotely, Push stops and asks you to recreate it in GitHub before retrying. Push updates an existing Gist file; it does not create or delete remote files.
 
 ## Data and Privacy Notes
 

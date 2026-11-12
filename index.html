@@ -8,6 +8,8 @@
   <title data-i18n="documentTitle">Notebook</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldgutter.css">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -18,8 +20,6 @@
         <h1 id="appTitle">Notebook</h1>
       </div>
       <div class="toolbar" aria-label="Notebook toolbar" data-i18n-aria-label="toolbarLabel">
-        <button id="undoButton" class="button button-secondary" type="button" data-i18n="undoButton" title="Undo">↶ Undo</button>
-        <button id="redoButton" class="button button-secondary" type="button" data-i18n="redoButton" title="Redo">↷ Redo</button>
         <button id="saveButton" class="button" type="button" data-i18n="saveButton">Save</button>
         <button id="pullButton" class="button button-success" type="button" data-i18n="pullButton">↓ Pull</button>
         <button id="pushButton" class="button button-warm" type="button" data-i18n="pushButton">↑ Push</button>
@@ -41,6 +41,20 @@
           <span id="documentState" class="document-state"></span>
           <span id="languageLabel" class="language-label"></span>
           <button id="linkGistButton" class="button button-small button-warm" type="button" data-i18n="linkGistButton" hidden>Link Gist</button>
+        </div>
+
+        <div id="editorToolbar" class="editor-toolbar" role="toolbar"
+          aria-label="Editor toolbar" data-i18n-aria-label="editorToolbarLabel">
+          <div class="editor-toolbar-group">
+            <button id="undoButton" class="editor-tool-button" type="button"
+              data-i18n-title="undoButton" data-i18n-aria-label="undoButton"
+              title="Undo" aria-label="Undo">↶</button>
+            <button id="redoButton" class="editor-tool-button" type="button"
+              data-i18n-title="redoButton" data-i18n-aria-label="redoButton"
+              title="Redo" aria-label="Redo">↷</button>
+          </div>
+          <div class="editor-toolbar-spacer"></div>
+          <div id="editorToolbarActions" class="editor-toolbar-actions"></div>
         </div>
 
         <div class="editor-shell">
@@ -160,6 +174,11 @@
         <button id="loadGistButton" class="button" type="button" data-i18n="loadGistButton">Load files</button>
       </div>
 
+      <div class="gist-browser-row">
+        <button id="browseMyGistsButton" class="button button-secondary button-small"
+          type="button" data-i18n="browseMyGistsButton">Browse my Gists</button>
+      </div>
+
       <div id="gistFilePicker" class="gist-file-picker" hidden>
         <label data-i18n="availableFilesLabel">Files in this Gist</label>
         <div id="availableFiles" class="available-files"></div>
@@ -213,6 +232,21 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/ruby/ruby.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/lua/lua.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/diff/diff.js"></script>
+
+  <!-- CodeMirror addons -->
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/matchbrackets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/closebrackets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldcode.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/brace-fold.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/comment-fold.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/indent-fold.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/markdown-fold.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/xml-fold.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldgutter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js"></script>
 
   <script type="module" src="./js/app.js"></script>
 </body>
