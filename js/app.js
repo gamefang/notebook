@@ -3,63 +3,73 @@ import { getLocale, setLocale, t } from './i18n.js';
 import { LocalStore, StorageKeys } from './storage.js';
 import { GistService } from './gist.js';
 
+const $ = (selector) => document.querySelector(selector);
+
 const elements = {
-  appTitle: document.querySelector('#appTitle'),
-  status: document.querySelector('#status'),
-  undoButton: document.querySelector('#undoButton'),
-  redoButton: document.querySelector('#redoButton'),
-  saveButton: document.querySelector('#saveButton'),
-  pullButton: document.querySelector('#pullButton'),
-  pushButton: document.querySelector('#pushButton'),
-  settingsButton: document.querySelector('#settingsButton'),
-  tabBar: document.querySelector('#tabBar'),
-  tabs: document.querySelector('#tabs'),
-  newTabButton: document.querySelector('#newTabButton'),
-  editorPanel: document.querySelector('#editorPanel'),
-  editor: document.querySelector('#editor'),
-  currentFilename: document.querySelector('#currentFilename'),
-  documentState: document.querySelector('#documentState'),
-  languageLabel: document.querySelector('#languageLabel'),
-  linkGistButton: document.querySelector('#linkGistButton'),
-  fileHint: document.querySelector('#fileHint'),
-  charCount: document.querySelector('#charCount'),
-  emptyState: document.querySelector('#emptyState'),
-  emptyAddButton: document.querySelector('#emptyAddButton'),
+  appTitle: $('#appTitle'),
+  status: $('#status'),
+  undoButton: $('#undoButton'),
+  redoButton: $('#redoButton'),
+  findButton: $('#findButton'),
+  replaceButton: $('#replaceButton'),
+  saveButton: $('#saveButton'),
+  pullButton: $('#pullButton'),
+  pushButton: $('#pushButton'),
+  settingsButton: $('#settingsButton'),
+  tabBar: $('#tabBar'),
+  tabs: $('#tabs'),
+  newTabButton: $('#newTabButton'),
+  editorPanel: $('#editorPanel'),
+  editor: $('#editor'),
+  currentFilename: $('#currentFilename'),
+  documentState: $('#documentState'),
+  languageLabel: $('#languageLabel'),
+  fileHint: $('#fileHint'),
+  charCount: $('#charCount'),
+  emptyState: $('#emptyState'),
+  emptyAddButton: $('#emptyAddButton'),
 
-  settingsDialog: document.querySelector('#settingsDialog'),
-  settingsForm: document.querySelector('#settingsForm'),
-  managerTitle: document.querySelector('#managerTitleInput'),
-  editorFontSize: document.querySelector('#editorFontSizeInput'),
-  token: document.querySelector('#tokenInput'),
-  gistEntryList: document.querySelector('#gistEntryList'),
-  noEntries: document.querySelector('#noEntries'),
-  addGistButton: document.querySelector('#addGistButton'),
-  closeSettingsButton: document.querySelector('#closeSettingsButton'),
-  cancelSettingsButton: document.querySelector('#cancelSettingsButton'),
+  settingsDialog: $('#settingsDialog'),
+  settingsForm: $('#settingsForm'),
+  managerTitle: $('#managerTitleInput'),
+  editorFontSize: $('#editorFontSizeInput'),
+  token: $('#tokenInput'),
+  gistEntryList: $('#gistEntryList'),
+  noEntries: $('#noEntries'),
+  addGistButton: $('#addGistButton'),
+  closeSettingsButton: $('#closeSettingsButton'),
+  cancelSettingsButton: $('#cancelSettingsButton'),
 
-  addGistDialog: document.querySelector('#addGistDialog'),
-  addGistTitle: document.querySelector('#addGistTitle'),
-  addGistForm: document.querySelector('#addGistForm'),
-  localFileSection: document.querySelector('#localFileSection'),
-  sectionDivider: document.querySelector('.section-divider'),
-  localFilename: document.querySelector('#localFilenameInput'),
-  createLocalFileButton: document.querySelector('#createLocalFileButton'),
-  gistUrl: document.querySelector('#gistUrlInput'),
-  loadGistButton: document.querySelector('#loadGistButton'),
-  browseMyGistsButton: document.querySelector('#browseMyGistsButton'),
-  gistFilePicker: document.querySelector('#gistFilePicker'),
-  availableFiles: document.querySelector('#availableFiles'),
-  addGistStatus: document.querySelector('#addGistStatus'),
-  addSelectedButton: document.querySelector('#addSelectedButton'),
-  closeAddGistButton: document.querySelector('#closeAddGistButton'),
-  cancelAddGistButton: document.querySelector('#cancelAddGistButton'),
+  addGistDialog: $('#addGistDialog'),
+  addGistTitle: $('#addGistTitle'),
+  addGistForm: $('#addGistForm'),
+  localFileSection: $('#localFileSection'),
+  sectionDivider: $('.section-divider'),
+  localFilename: $('#localFilenameInput'),
+  createLocalFileButton: $('#createLocalFileButton'),
+  gistUrl: $('#gistUrlInput'),
+  loadGistButton: $('#loadGistButton'),
+  browseMyGistsButton: $('#browseMyGistsButton'),
+  gistFilePicker: $('#gistFilePicker'),
+  availableFiles: $('#availableFiles'),
+  addGistStatus: $('#addGistStatus'),
+  addSelectedButton: $('#addSelectedButton'),
+  closeAddGistButton: $('#closeAddGistButton'),
+  cancelAddGistButton: $('#cancelAddGistButton'),
 
-  openDialog: document.querySelector('#openDialog'),
-  openFileList: document.querySelector('#openFileList'),
-  openEmptyHint: document.querySelector('#openEmptyHint'),
-  openAddGistButton: document.querySelector('#openAddGistButton'),
-  closeOpenDialogButton: document.querySelector('#closeOpenDialogButton'),
-  cancelOpenDialogButton: document.querySelector('#cancelOpenDialogButton')
+  createGistDialog: $('#createGistDialog'),
+  createGistForm: $('#createGistForm'),
+  gistDescription: $('#gistDescriptionInput'),
+  gistSecret: $('#gistSecretInput'),
+  closeCreateGistButton: $('#closeCreateGistButton'),
+  cancelCreateGistButton: $('#cancelCreateGistButton'),
+
+  openDialog: $('#openDialog'),
+  openFileList: $('#openFileList'),
+  openEmptyHint: $('#openEmptyHint'),
+  openAddGistButton: $('#openAddGistButton'),
+  closeOpenDialogButton: $('#closeOpenDialogButton'),
+  cancelOpenDialogButton: $('#cancelOpenDialogButton')
 };
 
 const LIMITS = config.limits;
@@ -78,13 +88,15 @@ let openTabs = [];
 let activeDocumentId = null;
 let isBusy = false;
 let addGistResult = null;
-let linkingDocumentId = null;
 let returnToSettings = false;
 let settingsDraft = null;
 let historyTimer = null;
 let historyDocumentId = null;
 let editorView = null;
 let suppressEditorChange = false;
+let tabDrag = null;
+let ignoreNextTabClick = false;
+let createGistOptionsResolver = null;
 
 function makeDocumentId(gistId, filename) {
   return `${gistId}/${filename}`;
@@ -93,7 +105,6 @@ function makeDocumentId(gistId, filename) {
 function makeLocalDocumentId() {
   const uuid = window.crypto?.randomUUID?.()
     ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-
   return `local:${uuid}`;
 }
 
@@ -119,10 +130,7 @@ function createEmptyDocument(entry) {
     updatedAt: null,
     revision: 0,
     externalChange: false,
-    history: {
-      undo: [],
-      redo: []
-    }
+    history: { undo: [], redo: [] }
   };
 }
 
@@ -165,7 +173,6 @@ function readSettings() {
     : config.editor.fontSize;
 
   const savedEntries = LocalStore.get(StorageKeys.GIST_FILES, []);
-
   settings.entries = Array.isArray(savedEntries)
     ? savedEntries
       .filter((entry) => entry && typeof entry.filename === 'string')
@@ -173,14 +180,10 @@ function readSettings() {
         const gistId = typeof entry.gistId === 'string' && entry.gistId
           ? entry.gistId
           : null;
-
-        // Keep existing document IDs. Older Gist entries did not store an ID,
-        // so derive their original ID to preserve their existing local cache.
+        // Keep existing IDs so existing local cache keys remain valid.
         const id = typeof entry.id === 'string' && entry.id
           ? entry.id
-          : (gistId
-            ? makeDocumentId(gistId, entry.filename)
-            : makeLocalDocumentId());
+          : (gistId ? makeDocumentId(gistId, entry.filename) : makeLocalDocumentId());
 
         return {
           id,
@@ -196,9 +199,7 @@ function readSettings() {
       .slice(0, LIMITS.maxRegisteredFiles)
     : [];
 
-  settings.entries.forEach((entry) => {
-    documents.set(entry.id, loadDocument(entry));
-  });
+  settings.entries.forEach((entry) => documents.set(entry.id, loadDocument(entry)));
 
   const savedTabs = LocalStore.get(StorageKeys.OPEN_TABS, []);
   openTabs = Array.isArray(savedTabs)
@@ -243,11 +244,9 @@ function persistDocument(doc) {
 
 function saveWorkspace() {
   let saved = true;
-
   documents.forEach((doc) => {
     saved = persistDocument(doc) && saved;
   });
-
   saved = LocalStore.set(StorageKeys.OPEN_TABS, openTabs) && saved;
   saved = LocalStore.set(StorageKeys.ACTIVE_TAB, activeDocumentId ?? '') && saved;
   return saved;
@@ -263,21 +262,12 @@ function setDialogStatus(message, type = '') {
   elements.addGistStatus.className = `dialog-status${type ? ` ${type}` : ''}`;
 }
 
-function setBusy(value) {
-  isBusy = value;
-  const hasCurrentLinkedDocument = Boolean(currentDocument()?.gistId);
+function currentDocument() {
+  return activeDocumentId ? documents.get(activeDocumentId) ?? null : null;
+}
 
-  elements.pullButton.disabled = value || !hasCurrentLinkedDocument;
-  elements.pushButton.disabled = value || !hasCurrentLinkedDocument;
-  elements.loadGistButton.disabled = value;
-  elements.browseMyGistsButton.disabled = value || !currentToken();
-  elements.addSelectedButton.disabled = value || !addGistResult;
-  elements.settingsButton.disabled = value;
-  elements.newTabButton.disabled = value;
-  elements.emptyAddButton.disabled = value;
-  elements.openAddGistButton.disabled = value;
-  elements.addGistButton.disabled = value;
-  elements.createLocalFileButton.disabled = value;
+function currentToken() {
+  return settingsDraft?.token?.trim() || settings.token;
 }
 
 function byteSize(value) {
@@ -291,15 +281,8 @@ function formatBytes(bytes) {
 }
 
 function isDocumentDirty(doc) {
-  if (doc.baseContent === null && !doc.exists) {
-    return doc.text.length > 0;
-  }
-
+  if (doc.baseContent === null && !doc.exists) return doc.text.length > 0;
   return doc.text !== doc.baseContent;
-}
-
-function currentDocument() {
-  return activeDocumentId ? documents.get(activeDocumentId) ?? null : null;
 }
 
 function getEditorValue() {
@@ -311,35 +294,28 @@ function setEditorValue(value) {
 
   if (editorView) {
     suppressEditorChange = true;
-    editorView.setValue(value);
-    suppressEditorChange = false;
+    try {
+      editorView.setValue(value);
+    } finally {
+      suppressEditorChange = false;
+    }
   } else {
     elements.editor.value = value;
   }
 }
 
 function focusEditor() {
-  if (editorView) {
-    editorView.focus();
-  } else {
-    elements.editor.focus();
-  }
+  if (editorView) editorView.focus();
+  else elements.editor.focus();
 }
 
 function applyEditorFontSize() {
-  document.documentElement.style.setProperty(
-    '--editor-font-size',
-    `${settings.editorFontSize}px`
-  );
-
+  document.documentElement.style.setProperty('--editor-font-size', `${settings.editorFontSize}px`);
   if (editorView) editorView.refresh();
 }
 
 function languageForFilename(filename) {
-  const extension = filename.includes('.')
-    ? filename.split('.').at(-1).toLowerCase()
-    : '';
-
+  const extension = filename.includes('.') ? filename.split('.').at(-1).toLowerCase() : '';
   const languages = {
     js: ['text/javascript', 'JavaScript'],
     mjs: ['text/javascript', 'JavaScript'],
@@ -386,28 +362,20 @@ function languageForFilename(filename) {
     txt: [null, 'Plain text'],
     log: [null, 'Plain text']
   };
-
   return languages[extension] ?? [null, t('languagePlainText')];
 }
 
 function updateEditorMode(doc) {
   if (!editorView) return;
-
   const [mode] = languageForFilename(doc.filename);
 
   try {
-    if (
-      mode?.name === 'gfm'
-      && typeof window.CodeMirror.overlayMode !== 'function'
-    ) {
+    if (mode?.name === 'gfm' && typeof window.CodeMirror.overlayMode !== 'function') {
       throw new Error('CodeMirror GFM overlay addon is not loaded.');
     }
-
     editorView.setOption('mode', mode);
   } catch (error) {
     if (mode?.name !== 'gfm') throw error;
-
-    // Keep ordinary Markdown highlighting available if the GFM overlay fails.
     console.error('CodeMirror GFM mode unavailable; using Markdown mode:', error);
     editorView.setOption('mode', 'text/x-markdown');
   }
@@ -462,15 +430,21 @@ function initializeEditor() {
         Delete: (cm) => cm.somethingSelected()
           ? cm.replaceSelection('', 'start', '+delete')
           : cm.execCommand('delCharAfter'),
-        Tab: (cm) => cm.replaceSelection(
-          ' '.repeat(config.editor.tabSize),
-          'end',
-          '+input'
-        )
+        Tab: (cm) => cm.replaceSelection(' '.repeat(config.editor.tabSize), 'end', '+input')
       }
     });
 
     editorView.setSize('100%', '100%');
+    editorView.on('change', () => {
+      if (suppressEditorChange) return;
+      const doc = currentDocument();
+      if (doc) recordInput(doc, editorView.getValue());
+    });
+    editorView.on('blur', () => {
+      flushHistoryGroup();
+      const doc = currentDocument();
+      if (doc) persistDocument(doc);
+    });
     return true;
   } catch (error) {
     console.error('CodeMirror initialization failed:', error);
@@ -484,12 +458,10 @@ function flushHistoryGroup() {
     window.clearTimeout(historyTimer);
     historyTimer = null;
   }
-
   if (historyDocumentId) {
     const doc = documents.get(historyDocumentId);
     if (doc) persistDocument(doc);
   }
-
   historyDocumentId = null;
 }
 
@@ -501,32 +473,29 @@ function trimHistory(doc, stackName) {
     stack.length > LIMITS.maxHistoryEntries
     || (stack.length > 1 && totalBytes > LIMITS.maxHistoryBytes)
   ) {
-    const removed = stack.shift();
-    totalBytes -= byteSize(removed);
+    totalBytes -= byteSize(stack.shift());
   }
 }
 
 function updateToolbarState() {
   const doc = currentDocument();
-  const hasCurrentLinkedDocument = Boolean(doc?.gistId);
+  const hasLinkedDocument = Boolean(doc?.gistId);
 
   elements.undoButton.disabled = !doc || doc.history.undo.length === 0;
   elements.redoButton.disabled = !doc || doc.history.redo.length === 0;
+  elements.findButton.disabled = !doc || !editorView;
+  elements.replaceButton.disabled = !doc || !editorView;
   elements.saveButton.disabled = !doc;
-  elements.pullButton.disabled = isBusy || !hasCurrentLinkedDocument;
-  elements.pushButton.disabled = isBusy || !hasCurrentLinkedDocument;
+  elements.pullButton.disabled = isBusy || !hasLinkedDocument;
+  elements.pushButton.disabled = isBusy || !doc;
 }
 
 function updateDocumentInfo(doc) {
   if (!doc) return;
-
   const dirty = isDocumentDirty(doc);
   const linked = Boolean(doc.gistId);
-  const remoteMissing = linked && doc.initialized && !doc.exists;
-  const canLink = !linked || remoteMissing;
 
   elements.currentFilename.textContent = doc.filename;
-
   elements.documentState.textContent = dirty
     ? t('modifiedLabel')
     : (linked
@@ -534,22 +503,13 @@ function updateDocumentInfo(doc) {
         ? t('syncedLabel')
         : (doc.initialized ? t('remoteMissingLabel') : t('loadingLabel')))
       : t('localOnlyLabel'));
-
   elements.documentState.className = `document-state${dirty ? ' is-dirty' : ''}`;
-
   elements.languageLabel.textContent = `${t('languageLabel')}: ${languageForFilename(doc.filename)[1]}`;
-
-  elements.linkGistButton.hidden = !canLink;
-  elements.linkGistButton.textContent = remoteMissing
-    ? t('relinkGistButton')
-    : t('linkGistButton');
-
   elements.fileHint.textContent = !linked
     ? t('localOnlyHint')
     : (doc.exists
       ? (dirty ? t('statusLocalDirty') : t('statusAllSynced'))
       : (doc.initialized ? t('remoteMissingHint') : t('loadingHint')));
-
   elements.charCount.textContent = `${formatBytes(byteSize(doc.text))} · ${doc.text.length.toLocaleString(getLocale())} chars`;
 }
 
@@ -612,15 +572,12 @@ function renderEditor() {
     elements.currentFilename.textContent = '';
     elements.documentState.textContent = '';
     elements.languageLabel.textContent = '';
-    elements.linkGistButton.hidden = true;
     elements.fileHint.textContent = '';
     elements.charCount.textContent = '0 B';
-
     if (editorView) {
       editorView.setOption('mode', null);
-      requestAnimationFrame(() => editorView.refresh());
+      requestAnimationFrame(() => editorView?.refresh());
     }
-
     updateToolbarState();
     return;
   }
@@ -629,10 +586,7 @@ function renderEditor() {
   updateEditorMode(doc);
   updateDocumentInfo(doc);
   updateToolbarState();
-
-  if (editorView) {
-    requestAnimationFrame(() => editorView.refresh());
-  }
+  if (editorView) requestAnimationFrame(() => editorView?.refresh());
 }
 
 function renderSettingsEntries() {
@@ -640,7 +594,6 @@ function renderSettingsEntries() {
   elements.noEntries.hidden = settings.entries.length > 0;
 
   settings.entries.forEach((entry) => {
-    const doc = documents.get(entry.id);
     const row = document.createElement('tr');
     const nameCell = document.createElement('td');
     const idCell = document.createElement('td');
@@ -669,21 +622,6 @@ function renderSettingsEntries() {
 
     const actions = document.createElement('div');
     actions.className = 'entry-actions';
-
-    const remoteMissing = Boolean(entry.gistId && doc?.initialized && !doc.exists);
-
-    if (!entry.gistId || remoteMissing) {
-      const linkButton = document.createElement('button');
-      linkButton.className = 'button button-small button-warm';
-      linkButton.type = 'button';
-      linkButton.dataset.action = 'link-entry';
-      linkButton.dataset.documentId = entry.id;
-      linkButton.textContent = remoteMissing
-        ? t('relinkGistButton')
-        : t('linkGistButton');
-      actions.append(linkButton);
-    }
-
     const remove = document.createElement('button');
     remove.className = 'icon-button entry-remove';
     remove.type = 'button';
@@ -746,18 +684,14 @@ function applyTitle() {
 
 function openSettings() {
   elements.managerTitle.value = settingsDraft?.title ?? settings.title;
-  elements.editorFontSize.value = String(
-    settingsDraft?.editorFontSize ?? settings.editorFontSize
-  );
+  elements.editorFontSize.value = String(settingsDraft?.editorFontSize ?? settings.editorFontSize);
   elements.token.value = settingsDraft?.token ?? settings.token;
-
   renderSettingsEntries();
   elements.settingsDialog.showModal();
 }
 
 function saveSettings(event) {
   event.preventDefault();
-
   const title = elements.managerTitle.value.trim();
   const editorFontSize = Number(elements.editorFontSize.value);
 
@@ -766,12 +700,9 @@ function saveSettings(event) {
     elements.managerTitle.focus();
     return;
   }
-
-  if (
-    !Number.isInteger(editorFontSize)
+  if (!Number.isInteger(editorFontSize)
     || editorFontSize < MIN_EDITOR_FONT_SIZE
-    || editorFontSize > MAX_EDITOR_FONT_SIZE
-  ) {
+    || editorFontSize > MAX_EDITOR_FONT_SIZE) {
     setStatus(t('errorEditorFontSize'), 'error');
     elements.editorFontSize.focus();
     return;
@@ -797,7 +728,6 @@ function saveSettings(event) {
 function parseGistId(value) {
   const input = String(value ?? '').trim();
   if (!input) return null;
-
   let candidate = input;
 
   try {
@@ -815,13 +745,8 @@ function parseGistId(value) {
   return /^[a-f0-9]{20,64}$/i.test(candidate) ? candidate : null;
 }
 
-function currentToken() {
-  return settingsDraft?.token?.trim() || settings.token;
-}
-
-function openAddGistDialog(fromSettings = false, documentId = null) {
+function openAddGistDialog(fromSettings = false) {
   returnToSettings = fromSettings;
-  linkingDocumentId = documentId;
 
   if (fromSettings && elements.settingsDialog.open) {
     settingsDraft = {
@@ -837,40 +762,30 @@ function openAddGistDialog(fromSettings = false, documentId = null) {
   elements.localFilename.value = '';
   elements.availableFiles.replaceChildren();
   elements.gistFilePicker.hidden = true;
-  elements.localFileSection.hidden = Boolean(linkingDocumentId);
-  elements.sectionDivider.hidden = Boolean(linkingDocumentId);
+  elements.localFileSection.hidden = false;
+  elements.sectionDivider.hidden = false;
   elements.gistUrl.disabled = false;
   elements.loadGistButton.disabled = false;
   elements.addSelectedButton.disabled = true;
   elements.browseMyGistsButton.disabled = !currentToken();
   elements.gistFilePicker.querySelector('label').textContent = t('availableFilesLabel');
-
-  elements.addGistTitle.textContent = linkingDocumentId
-    ? t('linkGistTitle')
-    : t('addGistTitle');
-  elements.addSelectedButton.textContent = linkingDocumentId
-    ? t('linkGistButton')
-    : t('addSelectedButton');
-
+  elements.addGistTitle.textContent = t('addGistTitle');
+  elements.addSelectedButton.textContent = t('addSelectedButton');
   setDialogStatus('');
   elements.addGistDialog.showModal();
-  elements.gistUrl.focus();
+  elements.localFilename.focus();
 }
 
 function closeAddGistDialog(restoreSettings = true) {
-  elements.addGistDialog.close();
+  if (elements.addGistDialog.open) elements.addGistDialog.close();
   addGistResult = null;
-  linkingDocumentId = null;
-
   const shouldRestoreSettings = returnToSettings && restoreSettings;
   returnToSettings = false;
-
   if (shouldRestoreSettings) openSettings();
 }
 
 function createLocalFile() {
-  if (addGistResult || linkingDocumentId) return;
-
+  if (addGistResult) return;
   const filename = elements.localFilename.value.trim();
 
   if (!filename) {
@@ -880,60 +795,42 @@ function createLocalFile() {
   }
 
   const invalidFilenameCharacters = /[\\/:*?"<>|\u0000-\u001f]/;
-
-  if (
-    invalidFilenameCharacters.test(filename)
+  if (invalidFilenameCharacters.test(filename)
     || filename === '.'
     || filename === '..'
-    || /[. ]$/.test(filename)
-  ) {
+    || /[. ]$/.test(filename)) {
     setDialogStatus(t('errorInvalidLocalFilename'), 'error');
     elements.localFilename.focus();
     return;
   }
 
   if (settings.entries.length >= LIMITS.maxRegisteredFiles) {
-    setDialogStatus(
-      t('statusFileLimit', { count: LIMITS.maxRegisteredFiles }),
-      'error'
-    );
+    setDialogStatus(t('statusFileLimit', { count: LIMITS.maxRegisteredFiles }), 'error');
     return;
   }
 
   const duplicate = settings.entries.some((entry) => (
-    !entry.gistId
-    && entry.filename.toLowerCase() === filename.toLowerCase()
+    !entry.gistId && entry.filename.toLowerCase() === filename.toLowerCase()
   ));
-
   if (duplicate) {
     setDialogStatus(t('errorDuplicateLocalFilename'), 'error');
     elements.localFilename.focus();
     return;
   }
 
-  const entry = {
-    id: makeLocalDocumentId(),
-    gistId: null,
-    gistFilename: null,
-    filename
-  };
-
+  const entry = { id: makeLocalDocumentId(), gistId: null, gistFilename: null, filename };
   const doc = createEmptyDocument(entry);
   doc.initialized = true;
-
   settings.entries.push(entry);
   documents.set(entry.id, doc);
 
   const settingsSaved = persistSettings();
   const documentSaved = persistDocument(doc);
-
   const openSlot = openTabs.length < LIMITS.maxOpenTabs;
-
   if (openSlot) {
     openTabs.push(entry.id);
     activeDocumentId = entry.id;
   }
-
   const workspaceSaved = saveWorkspace();
   const saved = settingsSaved && documentSaved && workspaceSaved;
 
@@ -941,7 +838,6 @@ function createLocalFile() {
   render();
   updateToolbarState();
   closeAddGistDialog(false);
-
   setStatus(
     !saved
       ? t('statusSaveFailed')
@@ -954,7 +850,6 @@ function createLocalFile() {
 
 async function loadGistFiles() {
   const gistId = parseGistId(elements.gistUrl.value);
-
   if (!gistId) {
     setDialogStatus(t('errorGistIdRequired'), 'error');
     elements.gistUrl.focus();
@@ -974,65 +869,44 @@ async function loadGistFiles() {
 
   try {
     const gist = await GistService.readGist(gistId, currentToken());
-
-    if (!gist.files.length) {
-      throw new Error(t('errorGistFilesEmpty'));
-    }
-
+    if (!gist.files.length) throw new Error(t('errorGistFilesEmpty'));
     addGistResult = gist;
     elements.availableFiles.replaceChildren();
 
     gist.files.forEach((file) => {
       const label = document.createElement('label');
       label.className = 'gist-file-option';
-
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.value = file.filename;
       checkbox.dataset.filename = file.filename;
-
       const tooLarge = file.size > LIMITS.maxDocumentBytes
-        || (typeof file.content === 'string'
-          && byteSize(file.content) > LIMITS.maxDocumentBytes);
-
+        || (typeof file.content === 'string' && byteSize(file.content) > LIMITS.maxDocumentBytes);
       checkbox.disabled = file.truncated || file.content === null || tooLarge;
 
       const info = document.createElement('span');
       info.className = 'gist-file-info';
-
-      const filenameElement = document.createElement('strong');
-      filenameElement.textContent = file.filename;
-
+      const filename = document.createElement('strong');
+      filename.textContent = file.filename;
       const metadata = document.createElement('small');
       metadata.textContent = file.truncated || file.content === null
         ? t('statusFileTruncated', { name: file.filename })
         : (tooLarge
-          ? t('statusFileTooLarge', {
-            size: formatBytes(LIMITS.maxDocumentBytes)
-          })
+          ? t('statusFileTooLarge', { size: formatBytes(LIMITS.maxDocumentBytes) })
           : formatBytes(file.size || byteSize(file.content)));
-
-      info.append(filenameElement, metadata);
+      info.append(filename, metadata);
       label.append(checkbox, info);
       elements.availableFiles.append(label);
     });
 
     elements.gistFilePicker.hidden = false;
     elements.addSelectedButton.disabled = false;
-
-    setDialogStatus(
-      t('statusGistLoaded', { count: gist.files.length }),
-      'success'
-    );
+    setDialogStatus(t('statusGistLoaded', { count: gist.files.length }), 'success');
   } catch (error) {
     addGistResult = null;
-    elements.localFileSection.hidden = Boolean(linkingDocumentId);
-    elements.sectionDivider.hidden = Boolean(linkingDocumentId);
-
-    setDialogStatus(
-      error?.message || t('errorGistNotFound'),
-      'error'
-    );
+    elements.localFileSection.hidden = false;
+    elements.sectionDivider.hidden = false;
+    setDialogStatus(error?.message || t('errorGistNotFound'), 'error');
   } finally {
     elements.gistUrl.disabled = false;
     elements.loadGistButton.disabled = false;
@@ -1042,7 +916,6 @@ async function loadGistFiles() {
 
 async function browseMyGists() {
   const token = currentToken();
-
   if (!token) {
     setDialogStatus(t('errorTokenRequired'), 'error');
     return;
@@ -1072,8 +945,8 @@ async function browseMyGists() {
     })));
 
     if (!files.length) {
-      elements.localFileSection.hidden = Boolean(linkingDocumentId);
-      elements.sectionDivider.hidden = Boolean(linkingDocumentId);
+      elements.localFileSection.hidden = false;
+      elements.sectionDivider.hidden = false;
       setDialogStatus(t('statusNoGists'));
       return;
     }
@@ -1081,7 +954,6 @@ async function browseMyGists() {
     files.forEach((file) => {
       const label = document.createElement('label');
       label.className = 'gist-file-option';
-
       const radio = document.createElement('input');
       radio.type = 'radio';
       radio.name = 'myGistFile';
@@ -1091,20 +963,14 @@ async function browseMyGists() {
 
       const info = document.createElement('span');
       info.className = 'gist-file-info';
-
       const filename = document.createElement('strong');
       filename.textContent = file.filename;
-
       const metadata = document.createElement('small');
-      const description = file.description || file.gistId;
-      const visibility = file.public
-        ? t('gistPublicLabel')
-        : t('gistSecretLabel');
-      const size = file.size ? formatBytes(file.size) : '';
-      metadata.textContent = [description, visibility, size]
-        .filter(Boolean)
-        .join(' · ');
-
+      metadata.textContent = [
+        file.description || file.gistId,
+        file.public ? t('gistPublicLabel') : t('gistSecretLabel'),
+        file.size ? formatBytes(file.size) : ''
+      ].filter(Boolean).join(' · ');
       info.append(filename, metadata);
       label.append(radio, info);
       elements.availableFiles.append(label);
@@ -1112,17 +978,11 @@ async function browseMyGists() {
 
     elements.gistFilePicker.hidden = false;
     elements.addSelectedButton.disabled = false;
-    setDialogStatus(
-      t('statusMyGistsLoaded', { count: files.length }),
-      'success'
-    );
+    setDialogStatus(t('statusMyGistsLoaded', { count: files.length }), 'success');
   } catch (error) {
-    elements.localFileSection.hidden = Boolean(linkingDocumentId);
-    elements.sectionDivider.hidden = Boolean(linkingDocumentId);
-    setDialogStatus(
-      error?.message || t('errorGistNotFound'),
-      'error'
-    );
+    elements.localFileSection.hidden = false;
+    elements.sectionDivider.hidden = false;
+    setDialogStatus(error?.message || t('errorGistNotFound'), 'error');
   } finally {
     elements.browseMyGistsButton.disabled = !currentToken();
     elements.loadGistButton.disabled = false;
@@ -1137,49 +997,37 @@ function initializeDocumentFromFile(doc, file, gist, preserveLocal = false) {
   if (!file) {
     doc.initialized = true;
     doc.updatedAt = gist.updatedAt;
-
     if (!preserveLocal) {
       doc.text = '';
       doc.history = { undo: [], redo: [] };
     }
-
     doc.baseContent = null;
     doc.exists = false;
     return;
   }
 
-  // Validate the remote payload before marking the document initialized.
-  // A failed first load must remain retryable when the tab is opened again.
   if (file.truncated || file.content === null) {
     throw new Error(t('statusFileTruncated', { name: file.filename }));
   }
-
   if (byteSize(file.content) > LIMITS.maxDocumentBytes) {
-    throw new Error(t('statusFileTooLarge', {
-      size: formatBytes(LIMITS.maxDocumentBytes)
-    }));
+    throw new Error(t('statusFileTooLarge', { size: formatBytes(LIMITS.maxDocumentBytes) }));
   }
 
   doc.initialized = true;
   doc.updatedAt = gist.updatedAt;
-
   if (!preserveLocal) {
     doc.text = file.content;
     doc.history = { undo: [], redo: [] };
   }
-
   doc.baseContent = file.content;
   doc.exists = true;
 }
 
 async function addSelectedGistFiles(event) {
   event.preventDefault();
-
-  const selectedInputs = [
-    ...elements.availableFiles.querySelectorAll(
-      'input[type="checkbox"]:checked, input[type="radio"]:checked'
-    )
-  ];
+  const selectedInputs = [...elements.availableFiles.querySelectorAll(
+    'input[type="checkbox"]:checked, input[type="radio"]:checked'
+  )];
 
   if (!selectedInputs.length) {
     setDialogStatus(t('errorFilenameRequired'), 'error');
@@ -1194,21 +1042,15 @@ async function addSelectedGistFiles(event) {
       setDialogStatus(t('errorSelectOneGistFile'), 'error');
       return;
     }
-
     elements.addSelectedButton.disabled = true;
     setDialogStatus(t('statusReadingSelectedGist'));
-
     try {
       addGistResult = await GistService.readGist(selectedGistId, currentToken());
     } catch (error) {
-      setDialogStatus(
-        error?.message || t('errorGistNotFound'),
-        'error'
-      );
+      setDialogStatus(error?.message || t('errorGistNotFound'), 'error');
       elements.addSelectedButton.disabled = false;
       return;
     }
-
     elements.addSelectedButton.disabled = false;
   }
 
@@ -1217,95 +1059,13 @@ async function addSelectedGistFiles(event) {
     return;
   }
 
-  // Link an existing local document instead of creating a new document.
-  if (linkingDocumentId) {
-    if (selectedNames.length !== 1) {
-      setDialogStatus(t('errorSelectOneGistFile'), 'error');
-      return;
-    }
-
-    const entry = settings.entries.find((item) => item.id === linkingDocumentId);
-    const doc = documents.get(linkingDocumentId);
-    const remoteFilename = selectedNames[0];
-
-    if (!entry || !doc || (entry.gistId && doc.exists)) {
-      setDialogStatus(t('errorLocalDocumentUnavailable'), 'error');
-      return;
-    }
-
-    const duplicate = settings.entries.some((item) => (
-      item.id !== entry.id
-      && item.gistId === addGistResult.id
-      && getRemoteFilename(item) === remoteFilename
-    ));
-
-    if (duplicate) {
-      setDialogStatus(t('errorGistFileAlreadyLinked'), 'error');
-      return;
-    }
-
-    const file = getGistFile(addGistResult, remoteFilename);
-
-    if (!file || file.truncated || file.content === null) {
-      setDialogStatus(
-        t('statusFileTruncated', { name: remoteFilename }),
-        'error'
-      );
-      return;
-    }
-
-    if (byteSize(file.content) > LIMITS.maxDocumentBytes) {
-      setDialogStatus(t('statusFileTooLarge', {
-        size: formatBytes(LIMITS.maxDocumentBytes)
-      }), 'error');
-      return;
-    }
-
-    // Keep the local ID, text and history, but mirror GitHub's exact filename.
-    // Only attach the remote Gist identity and its current base content.
-    entry.gistId = addGistResult.id;
-    entry.gistFilename = remoteFilename;
-    entry.filename = remoteFilename;
-
-    doc.gistId = addGistResult.id;
-    doc.gistFilename = remoteFilename;
-    doc.filename = remoteFilename;
-    doc.baseContent = file.content;
-    doc.exists = true;
-    doc.initialized = true;
-    doc.updatedAt = addGistResult.updatedAt;
-
-    const saved = persistSettings()
-      && persistDocument(doc)
-      && saveWorkspace();
-
-    renderSettingsEntries();
-    render();
-    updateToolbarState();
-    closeAddGistDialog(false);
-
-    setStatus(
-      saved
-        ? t('statusLocalFileLinked', {
-          name: doc.filename,
-          remote: remoteFilename
-        })
-        : t('statusSaveFailed'),
-      saved ? 'success' : 'error'
-    );
-    return;
-  }
-
-  // Register one or more files that already exist in a Gist.
   const additions = [];
   const duplicates = [];
 
   for (const filename of [...new Set(selectedNames)]) {
     const alreadyRegistered = settings.entries.some((entry) => (
-      entry.gistId === addGistResult.id
-      && getRemoteFilename(entry) === filename
+      entry.gistId === addGistResult.id && getRemoteFilename(entry) === filename
     ));
-
     if (alreadyRegistered) {
       duplicates.push(filename);
       continue;
@@ -1313,14 +1073,8 @@ async function addSelectedGistFiles(event) {
 
     const file = getGistFile(addGistResult, filename);
     if (!file) continue;
-
     const id = makeDocumentId(addGistResult.id, filename);
-    const entry = {
-      id,
-      gistId: addGistResult.id,
-      gistFilename: filename,
-      filename
-    };
+    const entry = { id, gistId: addGistResult.id, gistFilename: filename, filename };
     const doc = createEmptyDocument(entry);
 
     try {
@@ -1329,25 +1083,19 @@ async function addSelectedGistFiles(event) {
       setDialogStatus(error.message, 'error');
       return;
     }
-
     additions.push({ entry, doc });
   }
 
   if (!additions.length) {
     setDialogStatus(
-      duplicates.length
-        ? t('errorDuplicateEntry')
-        : t('errorFilenameRequired'),
+      duplicates.length ? t('errorDuplicateEntry') : t('errorFilenameRequired'),
       'error'
     );
     return;
   }
 
   if (settings.entries.length + additions.length > LIMITS.maxRegisteredFiles) {
-    setDialogStatus(
-      t('statusFileLimit', { count: LIMITS.maxRegisteredFiles }),
-      'error'
-    );
+    setDialogStatus(t('statusFileLimit', { count: LIMITS.maxRegisteredFiles }), 'error');
     return;
   }
 
@@ -1365,7 +1113,6 @@ async function addSelectedGistFiles(event) {
   const count = additions.length;
   const openSlots = Math.max(0, LIMITS.maxOpenTabs - openTabs.length);
   const opened = additions.slice(0, openSlots);
-
   opened.forEach(({ entry }) => openTabs.push(entry.id));
   if (opened.length) activeDocumentId = opened.at(-1).entry.id;
 
@@ -1378,39 +1125,26 @@ async function addSelectedGistFiles(event) {
   render();
   updateToolbarState();
   closeAddGistDialog(false);
-
-  setStatus(
-    workspaceSaved ? statusMessage : t('statusSaveFailed'),
-    workspaceSaved ? 'success' : 'error'
-  );
+  setStatus(workspaceSaved ? statusMessage : t('statusSaveFailed'), workspaceSaved ? 'success' : 'error');
 }
 
 function removeGistEntry(documentId) {
   const entry = settings.entries.find((item) => item.id === documentId);
   if (!entry) return;
-
   flushHistoryGroup();
-
   if (!window.confirm(t('removeEntryConfirm', { name: entry.filename }))) return;
 
   settings.entries = settings.entries.filter((item) => item.id !== documentId);
   documents.delete(documentId);
   LocalStore.remove(getDocumentStorageKey(documentId));
+  openTabs = openTabs.filter((id) => id !== documentId);
+  if (activeDocumentId === documentId) activeDocumentId = openTabs.at(-1) ?? null;
 
-  if (openTabs.includes(documentId)) {
-    openTabs = openTabs.filter((id) => id !== documentId);
-  }
-
-  if (activeDocumentId === documentId) {
-    activeDocumentId = openTabs.at(-1) ?? null;
-  }
-
-  persistSettings();
-  saveWorkspace();
+  const saved = persistSettings() && saveWorkspace();
   renderSettingsEntries();
   render();
   updateToolbarState();
-  setStatus(t('statusEntryRemoved'), 'success');
+  setStatus(saved ? t('statusEntryRemoved') : t('statusSaveFailed'), saved ? 'success' : 'error');
 }
 
 function openFileChooser() {
@@ -1421,30 +1155,19 @@ function openFileChooser() {
 async function hydrateDocument(doc) {
   if (!doc.gistId || doc.initialized) return;
   if (doc.loadingPromise) return doc.loadingPromise;
-
   const startRevision = doc.revision;
 
   doc.loadingPromise = (async () => {
     try {
       const gist = await GistService.readGist(doc.gistId, settings.token);
       const file = getGistFile(gist, doc.gistFilename || doc.filename);
-
-      // Preserve keystrokes entered while the first remote read was in flight.
-      initializeDocumentFromFile(
-        doc,
-        file,
-        gist,
-        doc.revision !== startRevision
-      );
-
+      initializeDocumentFromFile(doc, file, gist, doc.revision !== startRevision);
       persistDocument(doc);
-
       if (activeDocumentId === doc.id) {
         render();
         setStatus(t('statusFileLoaded', { name: doc.filename }), 'success');
       }
     } catch (error) {
-      // Keep the document uninitialized so a later open can retry a failed request.
       if (activeDocumentId === doc.id) {
         render();
         setStatus(error?.message || t('errorGistNotFound'), 'error');
@@ -1462,7 +1185,6 @@ async function hydrateDocument(doc) {
 async function openDocument(documentId) {
   const doc = documents.get(documentId);
   if (!doc) return;
-
   flushHistoryGroup();
   saveWorkspace();
 
@@ -1471,13 +1193,11 @@ async function openDocument(documentId) {
       setStatus(t('statusTabLimit', { count: LIMITS.maxOpenTabs }), 'warning');
       return;
     }
-
     openTabs.push(documentId);
   }
 
   activeDocumentId = documentId;
-  elements.openDialog.close();
-
+  if (elements.openDialog.open) elements.openDialog.close();
   render();
   saveWorkspace();
 
@@ -1485,32 +1205,22 @@ async function openDocument(documentId) {
     setStatus(t('statusPulling'));
     await hydrateDocument(doc);
   }
-
-  if (activeDocumentId === documentId) {
-    focusEditor();
-  }
+  if (activeDocumentId === documentId) focusEditor();
 }
 
 function closeTab(documentId) {
   flushHistoryGroup();
   openTabs = openTabs.filter((id) => id !== documentId);
-
-  if (activeDocumentId === documentId) {
-    activeDocumentId = openTabs.at(-1) ?? null;
-  }
-
+  if (activeDocumentId === documentId) activeDocumentId = openTabs.at(-1) ?? null;
   saveWorkspace();
   render();
 }
 
 function recordInput(doc, value) {
-  if (value === doc.text) return;
-
+  if (!doc || value === doc.text) return;
   if (byteSize(value) > LIMITS.maxDocumentBytes) {
     setEditorValue(doc.text);
-    setStatus(t('statusFileTooLarge', {
-      size: formatBytes(LIMITS.maxDocumentBytes)
-    }), 'error');
+    setStatus(t('statusFileTooLarge', { size: formatBytes(LIMITS.maxDocumentBytes) }), 'error');
     return;
   }
 
@@ -1525,9 +1235,7 @@ function recordInput(doc, value) {
   doc.text = value;
   doc.revision += 1;
   doc.externalChange = false;
-
   if (historyTimer !== null) window.clearTimeout(historyTimer);
-
   historyTimer = window.setTimeout(() => {
     historyTimer = null;
     historyDocumentId = null;
@@ -1539,19 +1247,18 @@ function recordInput(doc, value) {
   renderTabs();
   updateDocumentInfo(doc);
   updateToolbarState();
-
-  if (saved) {
-    setStatus(isDocumentDirty(doc) ? t('statusLocalDirty') : t('statusAllSynced'));
-  } else {
-    setStatus(t('statusSaveFailed'), 'error');
-  }
+  setStatus(
+    saved
+      ? (isDocumentDirty(doc) ? t('statusLocalDirty') : t('statusAllSynced'))
+      : t('statusSaveFailed'),
+    saved ? '' : 'error'
+  );
 }
 
 function replaceDocumentText(doc, value) {
   doc.text = value;
   doc.revision += 1;
   doc.externalChange = false;
-
   setEditorValue(value);
   updateDocumentInfo(doc);
   renderTabs();
@@ -1563,14 +1270,11 @@ function replaceDocumentText(doc, value) {
 function undo() {
   const doc = currentDocument();
   if (!doc) return;
-
   flushHistoryGroup();
-
   if (!doc.history.undo.length) {
     setStatus(t('historyUndoEmpty'));
     return;
   }
-
   doc.history.redo.push(doc.text);
   trimHistory(doc, 'redo');
   replaceDocumentText(doc, doc.history.undo.pop());
@@ -1580,14 +1284,11 @@ function undo() {
 function redo() {
   const doc = currentDocument();
   if (!doc) return;
-
   flushHistoryGroup();
-
   if (!doc.history.redo.length) {
     setStatus(t('historyRedoEmpty'));
     return;
   }
-
   doc.history.undo.push(doc.text);
   trimHistory(doc, 'undo');
   replaceDocumentText(doc, doc.history.redo.pop());
@@ -1597,11 +1298,8 @@ function redo() {
 function saveCurrent() {
   const doc = currentDocument();
   if (!doc) return;
-
   flushHistoryGroup();
-
   const saved = persistDocument(doc) && saveWorkspace();
-
   setStatus(
     saved
       ? (isDocumentDirty(doc) ? t('statusSaved') : t('statusAllSynced'))
@@ -1612,11 +1310,7 @@ function saveCurrent() {
 
 function insertTab() {
   if (editorView) {
-    editorView.replaceSelection(
-      ' '.repeat(config.editor.tabSize),
-      'end',
-      '+input'
-    );
+    editorView.replaceSelection(' '.repeat(config.editor.tabSize), 'end', '+input');
     return;
   }
 
@@ -1626,7 +1320,6 @@ function insertTab() {
   const before = editor.value.slice(0, start);
   const after = editor.value.slice(end);
   const spaces = ' '.repeat(config.editor.tabSize);
-
   editor.setRangeText(spaces, start, end, 'end');
   recordInput(currentDocument(), `${before}${spaces}${after}`);
 }
@@ -1634,17 +1327,14 @@ function insertTab() {
 function onEditorKeydown(event) {
   const isMac = navigator.platform.toUpperCase().includes('MAC');
   const modifier = isMac ? event.metaKey : event.ctrlKey;
-
   if (modifier && event.key.toLowerCase() === 's') {
     event.preventDefault();
     saveCurrent();
   } else if (modifier && event.key.toLowerCase() === 'z' && !event.shiftKey) {
     event.preventDefault();
     undo();
-  } else if (
-    (modifier && event.key.toLowerCase() === 'y')
-    || (modifier && event.key.toLowerCase() === 'z' && event.shiftKey)
-  ) {
+  } else if ((modifier && event.key.toLowerCase() === 'y')
+    || (modifier && event.key.toLowerCase() === 'z' && event.shiftKey)) {
     event.preventDefault();
     redo();
   } else if (event.key === 'Tab') {
@@ -1655,45 +1345,47 @@ function onEditorKeydown(event) {
 
 async function fetchGists(gistIds) {
   const uniqueIds = [...new Set(gistIds.filter(Boolean))];
-
   const pairs = await Promise.all(uniqueIds.map(async (id) => [
     id,
     await GistService.readGist(id, settings.token)
   ]));
-
   return new Map(pairs);
 }
 
 function getRemoteContent(gist, filename) {
   const file = getGistFile(gist, filename);
-
-  if (!file) {
-    return { exists: false, content: null, file: null };
-  }
-
+  if (!file) return { exists: false, content: null, file: null };
   if (file.truncated || file.content === null) {
     throw new Error(t('statusFileTruncated', { name: filename }));
   }
-
   if (byteSize(file.content) > LIMITS.maxDocumentBytes) {
-    throw new Error(t('statusFileTooLarge', {
-      size: formatBytes(LIMITS.maxDocumentBytes)
-    }));
+    throw new Error(t('statusFileTooLarge', { size: formatBytes(LIMITS.maxDocumentBytes) }));
   }
+  return { exists: true, content: file.content, file };
+}
 
-  return {
-    exists: true,
-    content: file.content,
-    file
-  };
+function setBusy(value) {
+  isBusy = value;
+  const hasDocument = Boolean(currentDocument());
+  const hasLinkedDocument = Boolean(currentDocument()?.gistId);
+  elements.pullButton.disabled = value || !hasLinkedDocument;
+  elements.pushButton.disabled = value || !hasDocument;
+  elements.loadGistButton.disabled = value;
+  elements.browseMyGistsButton.disabled = value || !currentToken();
+  elements.addSelectedButton.disabled = value || !addGistResult;
+  elements.settingsButton.disabled = value;
+  elements.newTabButton.disabled = value;
+  elements.emptyAddButton.disabled = value;
+  elements.openAddGistButton.disabled = value;
+  elements.addGistButton.disabled = value;
+  elements.createLocalFileButton.disabled = value;
+  updateToolbarState();
 }
 
 async function pullAll() {
   if (isBusy) return;
-
   const doc = currentDocument();
   if (!doc) return;
-
   const entry = settings.entries.find((item) => item.id === doc.id);
   if (!entry?.gistId) {
     setStatus(t('statusCurrentFileNotLinked'), 'warning');
@@ -1702,7 +1394,6 @@ async function pullAll() {
 
   flushHistoryGroup();
   saveWorkspace();
-
   const startRevision = doc.revision;
   setBusy(true);
   setStatus(t('statusPullCurrent', { name: doc.filename }));
@@ -1711,35 +1402,25 @@ async function pullAll() {
     const gist = await GistService.readGist(entry.gistId, settings.token);
     const remoteFilename = getRemoteFilename(entry);
     const remote = getRemoteContent(gist, remoteFilename);
-
-    if (doc.revision !== startRevision) {
-      throw new Error(t('errorLocalChangedDuringPull'));
-    }
+    if (doc.revision !== startRevision) throw new Error(t('errorLocalChangedDuringPull'));
 
     if (!remote.exists) {
       doc.exists = false;
       doc.initialized = true;
       doc.updatedAt = gist.updatedAt;
-
       const saved = persistDocument(doc);
       render();
-
       setStatus(
-        saved
-          ? t('statusPullMissing', { name: doc.filename, remote: remoteFilename })
-          : t('statusSaveFailed'),
+        saved ? t('statusPullMissing', { name: doc.filename, remote: remoteFilename }) : t('statusSaveFailed'),
         saved ? 'warning' : 'error'
       );
       return;
     }
 
-    if (
-      isDocumentDirty(doc)
-      && !window.confirm(t('statusPullConflict', {
-        name: doc.filename,
-        remote: remoteFilename
-      }))
-    ) {
+    if (isDocumentDirty(doc) && !window.confirm(t('statusPullConflict', {
+      name: doc.filename,
+      remote: remoteFilename
+    }))) {
       setStatus(t('statusSyncCancelled'));
       return;
     }
@@ -1752,38 +1433,149 @@ async function pullAll() {
     doc.revision += 1;
     doc.externalChange = false;
     doc.history = { undo: [], redo: [] };
-
     const saved = saveWorkspace();
     render();
-
     setStatus(
-      saved
-        ? t('statusPullSuccess', { name: doc.filename })
-        : t('statusSaveFailed'),
+      saved ? t('statusPullSuccess', { name: doc.filename }) : t('statusSaveFailed'),
       saved ? 'success' : 'error'
     );
   } catch (error) {
-    setStatus(
-      t('statusPullFailed', { error: error?.message || t('unknownError') }),
-      'error'
-    );
+    setStatus(t('statusPullFailed', { error: error?.message || t('unknownError') }), 'error');
   } finally {
     setBusy(false);
-    updateToolbarState();
   }
+}
+
+function requestCreateGistOptions(defaultDescription) {
+  return new Promise((resolve) => {
+    createGistOptionsResolver = resolve;
+    elements.gistDescription.value = defaultDescription;
+    elements.gistSecret.checked = true;
+    elements.createGistDialog.showModal();
+    elements.gistDescription.focus();
+  });
+}
+
+function finishCreateGistOptions(value) {
+  if (!createGistOptionsResolver) return;
+  const resolve = createGistOptionsResolver;
+  createGistOptionsResolver = null;
+  if (elements.createGistDialog.open) elements.createGistDialog.close();
+  resolve(value);
+}
+
+function attachDocumentToGist(doc, entry, gist, snapshot) {
+  if (!gist?.id) throw new Error('GitHub did not return a valid Gist ID.');
+  entry.gistId = gist.id;
+  entry.gistFilename = doc.filename;
+  doc.gistId = gist.id;
+  doc.gistFilename = doc.filename;
+  doc.baseContent = snapshot;
+  doc.exists = true;
+  doc.initialized = true;
+  doc.updatedAt = gist.updatedAt ?? gist.updated_at ?? null;
+  doc.externalChange = false;
+}
+
+async function pushLocalDocument(doc, entry, snapshot, startRevision) {
+  // The authenticated /gists endpoint includes the user's public and Secret Gists.
+  const gists = await GistService.listGists(settings.token);
+  if (doc.revision !== startRevision) throw new Error(t('errorLocalChangedDuringPush'));
+
+  const matches = gists.filter((gist) => (
+    gist.files.some((file) => file.filename === doc.filename)
+  ));
+
+  let targetGist = null;
+  let created = false;
+
+  if (matches.length) {
+    if (matches.length === 1) {
+      targetGist = matches[0];
+    } else {
+      const choices = matches.map((gist, index) => (
+        `${index + 1}. ${gist.description || gist.id} (${gist.id})`
+      )).join('\n');
+      const answer = window.prompt(
+        t('promptSelectMatchingGist', { filename: doc.filename, choices }),
+        '1'
+      );
+      if (answer === null) {
+        setStatus(t('statusSyncCancelled'));
+        return;
+      }
+      const index = Number(answer) - 1;
+      if (!Number.isInteger(index) || index < 0 || index >= matches.length) {
+        throw new Error(t('errorInvalidGistChoice'));
+      }
+      targetGist = matches[index];
+    }
+
+    const confirmed = window.confirm(t('confirmOverwriteSameNameGist', {
+      filename: doc.filename,
+      description: targetGist.description || targetGist.id,
+      gistId: targetGist.id
+    }));
+    if (!confirmed) {
+      setStatus(t('statusSyncCancelled'));
+      return;
+    }
+    if (doc.revision !== startRevision) throw new Error(t('errorLocalChangedDuringPush'));
+
+    const updatedGist = await GistService.writeFiles(
+      targetGist.id,
+      settings.token,
+      { [doc.filename]: snapshot }
+    );
+    targetGist = {
+      ...targetGist,
+      updatedAt: updatedGist?.updated_at ?? targetGist.updatedAt
+    };
+  } else {
+    if (!window.confirm(t('confirmCreateGistForLocalFile', { filename: doc.filename }))) {
+      setStatus(t('statusSyncCancelled'));
+      return;
+    }
+
+    const options = await requestCreateGistOptions(doc.filename);
+    if (!options) {
+      setStatus(t('statusSyncCancelled'));
+      return;
+    }
+    if (doc.revision !== startRevision) throw new Error(t('errorLocalChangedDuringPush'));
+
+    targetGist = await GistService.createGist(settings.token, {
+      description: options.description,
+      public: !options.secret,
+      files: { [doc.filename]: snapshot }
+    });
+    created = true;
+  }
+
+  if (!targetGist?.id) throw new Error('GitHub did not return a valid Gist ID.');
+  attachDocumentToGist(doc, entry, targetGist, snapshot);
+
+  // A remote operation may succeed even if browser storage is full; report that clearly.
+  const saved = persistSettings() && saveWorkspace();
+  const hasNewerEdits = doc.text !== snapshot;
+  renderSettingsEntries();
+  render();
+  setStatus(
+    !saved
+      ? t('statusSaveFailed')
+      : (hasNewerEdits
+        ? t('statusPushOutdated')
+        : t(created ? 'statusGistCreated' : 'statusGistUpdated', { name: doc.filename })),
+    !saved ? 'error' : (hasNewerEdits ? 'warning' : 'success')
+  );
 }
 
 async function pushAll() {
   if (isBusy) return;
-
   const doc = currentDocument();
   if (!doc) return;
-
   const entry = settings.entries.find((item) => item.id === doc.id);
-  if (!entry?.gistId) {
-    setStatus(t('statusCurrentFileNotLinked'), 'warning');
-    return;
-  }
+  if (!entry) return;
 
   if (!settings.token) {
     setStatus(t('errorTokenRequired'), 'error');
@@ -1792,8 +1584,7 @@ async function pushAll() {
 
   flushHistoryGroup();
   saveWorkspace();
-
-  if (!isDocumentDirty(doc)) {
+  if (entry.gistId && !isDocumentDirty(doc)) {
     setStatus(t('statusNoPushChanges', { name: doc.filename }), 'success');
     return;
   }
@@ -1801,42 +1592,36 @@ async function pushAll() {
   const snapshot = doc.text;
   const startRevision = doc.revision;
   const remoteFilename = getRemoteFilename(entry);
-
   setBusy(true);
   setStatus(t('statusPushCurrent', { name: doc.filename }));
 
   try {
+    if (!entry.gistId) {
+      await pushLocalDocument(doc, entry, snapshot, startRevision);
+      return;
+    }
+
     const gist = await GistService.readGist(entry.gistId, settings.token);
     const remote = getRemoteContent(gist, remoteFilename);
-
-    if (doc.revision !== startRevision) {
-      throw new Error(t('errorLocalChangedDuringPush'));
-    }
+    if (doc.revision !== startRevision) throw new Error(t('errorLocalChangedDuringPush'));
 
     if (!remote.exists) {
       doc.exists = false;
       doc.initialized = true;
       doc.updatedAt = gist.updatedAt;
-
       const saved = persistDocument(doc);
       render();
-
       setStatus(
-        saved
-          ? t('statusPushMissing', { name: doc.filename, remote: remoteFilename })
-          : t('statusSaveFailed'),
+        saved ? t('statusPushMissing', { name: doc.filename, remote: remoteFilename }) : t('statusSaveFailed'),
         saved ? 'warning' : 'error'
       );
       return;
     }
 
-    if (
-      remote.content !== doc.baseContent
-      && !window.confirm(t('statusPushConflict', {
-        name: doc.filename,
-        remote: remoteFilename
-      }))
-    ) {
+    if (remote.content !== doc.baseContent && !window.confirm(t('statusPushConflict', {
+      name: doc.filename,
+      remote: remoteFilename
+    }))) {
       setStatus(t('statusSyncCancelled'));
       return;
     }
@@ -1846,8 +1631,6 @@ async function pushAll() {
       settings.token,
       { [remoteFilename]: snapshot }
     );
-
-    // Keep edits made while the request was in flight. Only advance the sync base.
     doc.baseContent = snapshot;
     doc.exists = true;
     doc.initialized = true;
@@ -1856,9 +1639,7 @@ async function pushAll() {
 
     const saved = saveWorkspace();
     const hasNewerEdits = doc.text !== snapshot;
-
     render();
-
     setStatus(
       !saved
         ? t('statusSaveFailed')
@@ -1868,21 +1649,15 @@ async function pushAll() {
       !saved ? 'error' : (hasNewerEdits ? 'warning' : 'success')
     );
   } catch (error) {
-    setStatus(
-      t('statusPushFailed', { error: error?.message || t('unknownError') }),
-      'error'
-    );
+    setStatus(t('statusPushFailed', { error: error?.message || t('unknownError') }), 'error');
   } finally {
     setBusy(false);
-    updateToolbarState();
   }
 }
 
 function handleStorageChange(event) {
   if (!event.key?.startsWith(StorageKeys.NOTE_PREFIX)) return;
-
   let documentId;
-
   try {
     documentId = decodeURIComponent(event.key.slice(StorageKeys.NOTE_PREFIX.length));
   } catch {
@@ -1891,41 +1666,96 @@ function handleStorageChange(event) {
 
   const doc = documents.get(documentId);
   if (!doc || !event.newValue) return;
-
   let incoming;
-
   try {
     incoming = JSON.parse(event.newValue);
   } catch {
     return;
   }
-
   if (typeof incoming?.text !== 'string' || incoming.text === doc.text) return;
 
   if (isDocumentDirty(doc)) {
     doc.externalChange = true;
-
     if (activeDocumentId === doc.id) {
       setStatus(t('statusStorageChanged'), 'warning');
       elements.documentState.textContent = t('statusStorageChanged');
       elements.documentState.classList.add('is-warning');
     }
-
     return;
   }
 
   const entry = settings.entries.find((item) => item.id === doc.id);
   if (!entry) return;
-
-  const updated = loadDocument(entry);
-  documents.set(doc.id, updated);
-
+  documents.set(doc.id, loadDocument(entry));
   if (activeDocumentId === doc.id) render();
+}
+
+function beginTabDrag(event) {
+  if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (event.target.closest('.tab-close')) return;
+  const tab = event.target.closest('.tab');
+  if (!tab) return;
+
+  tabDrag = {
+    pointerId: event.pointerId,
+    tab,
+    startX: event.clientX,
+    startY: event.clientY,
+    dragging: false
+  };
+}
+
+function moveTabDrag(event) {
+  if (!tabDrag || event.pointerId !== tabDrag.pointerId) return;
+  const dx = event.clientX - tabDrag.startX;
+  const dy = event.clientY - tabDrag.startY;
+
+  if (!tabDrag.dragging && Math.hypot(dx, dy) < 7) return;
+  tabDrag.dragging = true;
+  event.preventDefault();
+  tabDrag.tab.classList.add('is-dragging');
+
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.tab');
+  if (target && target !== tabDrag.tab && elements.tabs.contains(target)) {
+    const rect = target.getBoundingClientRect();
+    if (event.clientX < rect.left + rect.width / 2) target.before(tabDrag.tab);
+    else target.after(tabDrag.tab);
+  }
+
+  // Keep the strip moving when dragging near either horizontal edge.
+  const stripRect = elements.tabs.getBoundingClientRect();
+  if (event.clientX < stripRect.left + 24) elements.tabs.scrollLeft -= 12;
+  else if (event.clientX > stripRect.right - 24) elements.tabs.scrollLeft += 12;
+}
+
+function endTabDrag(event) {
+  if (!tabDrag || event.pointerId !== tabDrag.pointerId) return;
+  const drag = tabDrag;
+  tabDrag = null;
+  drag.tab.classList.remove('is-dragging');
+  if (!drag.dragging) return;
+
+  openTabs = [...elements.tabs.querySelectorAll('.tab')]
+    .map((tab) => tab.dataset.documentId)
+    .filter((id) => documents.has(id));
+  saveWorkspace();
+  ignoreNextTabClick = true;
+  window.setTimeout(() => { ignoreNextTabClick = false; }, 0);
 }
 
 function bindEvents() {
   elements.undoButton.addEventListener('click', undo);
   elements.redoButton.addEventListener('click', redo);
+  elements.findButton.addEventListener('click', () => {
+    if (!editorView) return;
+    focusEditor();
+    editorView.execCommand('findPersistent');
+  });
+  elements.replaceButton.addEventListener('click', () => {
+    if (!editorView) return;
+    focusEditor();
+    editorView.execCommand('replace');
+  });
   elements.saveButton.addEventListener('click', saveCurrent);
   elements.pullButton.addEventListener('click', pullAll);
   elements.pushButton.addEventListener('click', pushAll);
@@ -1933,80 +1763,48 @@ function bindEvents() {
   elements.newTabButton.addEventListener('click', openFileChooser);
   elements.emptyAddButton.addEventListener('click', () => openAddGistDialog(false));
 
-  elements.linkGistButton.addEventListener('click', () => {
-    const doc = currentDocument();
-    if (doc) openAddGistDialog(false, doc.id);
-  });
-
-  if (editorView) {
-    editorView.on('change', () => {
-      if (suppressEditorChange) return;
-
-      const doc = currentDocument();
-      if (doc) recordInput(doc, editorView.getValue());
-    });
-
-    editorView.on('blur', () => {
-      flushHistoryGroup();
-
-      const doc = currentDocument();
-      if (doc) persistDocument(doc);
-    });
-  } else {
+  if (!editorView) {
     elements.editor.addEventListener('input', () => {
       const doc = currentDocument();
       if (doc) recordInput(doc, elements.editor.value);
     });
-
     elements.editor.addEventListener('blur', () => {
       flushHistoryGroup();
-
       const doc = currentDocument();
       if (doc) persistDocument(doc);
     });
-
     elements.editor.addEventListener('keydown', onEditorKeydown);
   }
 
+  elements.tabs.addEventListener('pointerdown', beginTabDrag);
+  document.addEventListener('pointermove', moveTabDrag, { passive: false });
+  document.addEventListener('pointerup', endTabDrag);
+  document.addEventListener('pointercancel', endTabDrag);
   elements.tabs.addEventListener('click', (event) => {
+    if (ignoreNextTabClick) {
+      event.preventDefault();
+      return;
+    }
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-
     const documentId = button.dataset.documentId;
-
     if (button.dataset.action === 'activate') openDocument(documentId);
     if (button.dataset.action === 'close') closeTab(documentId);
   });
 
   elements.settingsForm.addEventListener('submit', saveSettings);
-
   elements.closeSettingsButton.addEventListener('click', () => {
     settingsDraft = null;
     elements.settingsDialog.close();
   });
-
   elements.cancelSettingsButton.addEventListener('click', () => {
     settingsDraft = null;
     elements.settingsDialog.close();
   });
-
-  elements.addGistButton.addEventListener('click', () => {
-    openAddGistDialog(true);
-  });
-
+  elements.addGistButton.addEventListener('click', () => openAddGistDialog(true));
   elements.gistEntryList.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-action]');
-    if (!button) return;
-
-    const documentId = button.dataset.documentId;
-
-    if (button.dataset.action === 'remove-entry') {
-      removeGistEntry(documentId);
-    }
-
-    if (button.dataset.action === 'link-entry') {
-      openAddGistDialog(true, documentId);
-    }
+    const button = event.target.closest('button[data-action="remove-entry"]');
+    if (button) removeGistEntry(button.dataset.documentId);
   });
 
   elements.createLocalFileButton.addEventListener('click', createLocalFile);
@@ -2015,18 +1813,12 @@ function bindEvents() {
   elements.addGistForm.addEventListener('submit', addSelectedGistFiles);
   elements.closeAddGistButton.addEventListener('click', closeAddGistDialog);
   elements.cancelAddGistButton.addEventListener('click', closeAddGistDialog);
-
   elements.localFilename.addEventListener('keydown', (event) => {
-    if (
-      event.key === 'Enter'
-      && !addGistResult
-      && !linkingDocumentId
-    ) {
+    if (event.key === 'Enter' && !addGistResult) {
       event.preventDefault();
       createLocalFile();
     }
   });
-
   elements.gistUrl.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -2034,40 +1826,41 @@ function bindEvents() {
     }
   });
 
+  elements.createGistForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    finishCreateGistOptions({
+      description: elements.gistDescription.value.trim(),
+      secret: elements.gistSecret.checked
+    });
+  });
+  elements.closeCreateGistButton.addEventListener('click', () => finishCreateGistOptions(null));
+  elements.cancelCreateGistButton.addEventListener('click', () => finishCreateGistOptions(null));
+  elements.createGistDialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    finishCreateGistOptions(null);
+  });
+
   elements.openFileList.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-document-id]');
     if (button) openDocument(button.dataset.documentId);
   });
-
-  elements.closeOpenDialogButton.addEventListener('click', () => {
-    elements.openDialog.close();
-  });
-
-  elements.cancelOpenDialogButton.addEventListener('click', () => {
-    elements.openDialog.close();
-  });
-
+  elements.closeOpenDialogButton.addEventListener('click', () => elements.openDialog.close());
+  elements.cancelOpenDialogButton.addEventListener('click', () => elements.openDialog.close());
   elements.openAddGistButton.addEventListener('click', () => {
     elements.openDialog.close();
     openAddGistDialog(false);
   });
 
   window.addEventListener('storage', handleStorageChange);
-
-  window.addEventListener('resize', () => {
-    if (editorView) editorView.refresh();
-  });
-
+  window.addEventListener('resize', () => editorView?.refresh());
   window.addEventListener('pagehide', () => {
     flushHistoryGroup();
     saveWorkspace();
   });
-
   window.addEventListener('blur', () => {
     flushHistoryGroup();
     saveWorkspace();
   });
-
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       flushHistoryGroup();
@@ -2078,11 +1871,9 @@ function bindEvents() {
 
 async function restoreOpenTabs() {
   render();
-
   const toHydrate = openTabs
     .map((id) => documents.get(id))
     .filter((doc) => doc && doc.gistId && !doc.initialized);
-
   if (!toHydrate.length) return;
 
   const ids = [...new Set(toHydrate.map((doc) => doc.gistId))];
@@ -2091,10 +1882,12 @@ async function restoreOpenTabs() {
   try {
     const gists = await fetchGists(ids);
     const errors = [];
-
     for (const doc of toHydrate) {
       const gist = gists.get(doc.gistId);
-
+      if (!gist) {
+        errors.push(`${doc.filename}: ${t('errorGistNotFound')}`);
+        continue;
+      }
       try {
         initializeDocumentFromFile(
           doc,
@@ -2102,18 +1895,13 @@ async function restoreOpenTabs() {
           gist,
           doc.revision !== startRevisions.get(doc.id)
         );
-
         persistDocument(doc);
       } catch (error) {
         errors.push(`${doc.filename}: ${error?.message || t('unknownError')}`);
       }
     }
-
     render();
-
-    if (errors.length) {
-      setStatus(errors.join(' · '), 'error');
-    }
+    if (errors.length) setStatus(errors.join(' · '), 'error');
   } catch (error) {
     setStatus(error?.message || t('errorGistNotFound'), 'error');
   }
@@ -2124,19 +1912,14 @@ function init() {
   readSettings();
   applyTitle();
   applyEditorFontSize();
-
   const editorReady = initializeEditor();
-
   bindEvents();
   render();
   updateToolbarState();
   restoreOpenTabs();
 
-  if (!editorReady) {
-    setStatus(t('statusEditorFallback'), 'warning');
-  } else if (!settings.entries.length || !openTabs.length) {
-    setStatus(t('statusReady'));
-  }
+  if (!editorReady) setStatus(t('statusEditorFallback'), 'warning');
+  else if (!settings.entries.length || !openTabs.length) setStatus(t('statusReady'));
 }
 
 init();

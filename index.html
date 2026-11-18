@@ -20,7 +20,6 @@
         <h1 id="appTitle">Notebook</h1>
       </div>
       <div class="toolbar" aria-label="Notebook toolbar" data-i18n-aria-label="toolbarLabel">
-        <button id="saveButton" class="button" type="button" data-i18n="saveButton">Save</button>
         <button id="pullButton" class="button button-success" type="button" data-i18n="pullButton">↓ Pull</button>
         <button id="pushButton" class="button button-warm" type="button" data-i18n="pushButton">↑ Push</button>
         <button id="settingsButton" class="button button-secondary" type="button" data-i18n="settingsButton">⚙ Settings</button>
@@ -40,7 +39,6 @@
           <span id="currentFilename" class="current-filename"></span>
           <span id="documentState" class="document-state"></span>
           <span id="languageLabel" class="language-label"></span>
-          <button id="linkGistButton" class="button button-small button-warm" type="button" data-i18n="linkGistButton" hidden>Link Gist</button>
         </div>
 
         <div id="editorToolbar" class="editor-toolbar" role="toolbar"
@@ -52,9 +50,20 @@
             <button id="redoButton" class="editor-tool-button" type="button"
               data-i18n-title="redoButton" data-i18n-aria-label="redoButton"
               title="Redo" aria-label="Redo">↷</button>
+            <span class="toolbar-divider" aria-hidden="true"></span>
+            <button id="findButton" class="editor-tool-button" type="button"
+              data-i18n-title="findButton" data-i18n-aria-label="findButton"
+              title="Find" aria-label="Find">🔍︎</button>
+            <button id="replaceButton" class="editor-tool-button" type="button"
+              data-i18n-title="replaceButton" data-i18n-aria-label="replaceButton"
+              title="Replace" aria-label="Replace">⇄</button>
           </div>
           <div class="editor-toolbar-spacer"></div>
-          <div id="editorToolbarActions" class="editor-toolbar-actions"></div>
+          <div class="editor-toolbar-group">
+            <button id="saveButton" class="editor-tool-button" type="button"
+              data-i18n-title="saveButton" data-i18n-aria-label="saveButton"
+              title="Save locally" aria-label="Save locally">💾</button>
+          </div>
         </div>
 
         <div class="editor-shell">
@@ -88,7 +97,7 @@
     </section>
 
     <footer class="app-footer">
-      <span data-i18n="saveLocalOnlyHint">Save stores this note in this browser. Push syncs linked notes to GitHub.</span>
+      <span data-i18n="saveLocalOnlyHint">Save stores this note in this browser. Push syncs it to GitHub.</span>
       <span data-i18n="storageWarning">Browser storage is limited. Keep important notes synced and maintain a backup.</span>
     </footer>
   </main>
@@ -117,7 +126,7 @@
       <div class="section-heading">
         <div>
           <h3 data-i18n="documentsTitle">Documents</h3>
-          <p class="field-hint" data-i18n="documentsDescription">Local notes can be linked to an existing file in a Gist later.</p>
+          <p class="field-hint" data-i18n="documentsDescription">Local notes can be pushed directly to GitHub.</p>
         </div>
         <button id="addGistButton" class="button button-small button-warm" type="button" data-i18n="addGistButton">＋ Add file</button>
       </div>
@@ -153,16 +162,9 @@
 
       <div id="localFileSection" class="local-file-section">
         <label for="localFilenameInput" data-i18n="localFilenameLabel">Local file name</label>
-        <input
-          id="localFilenameInput"
-          type="text"
-          maxlength="120"
-          autocomplete="off"
-          spellcheck="false"
-          data-i18n-placeholder="localFilenamePlaceholder"
-          placeholder="notes.md"
-        >
-        <p class="field-hint" data-i18n="localFilenameHint">Enter the complete file name, including an optional extension. Leave the extension out for a plain file.</p>
+        <input id="localFilenameInput" type="text" maxlength="120" autocomplete="off" spellcheck="false"
+          data-i18n-placeholder="localFilenamePlaceholder" placeholder="notes.md">
+        <p class="field-hint" data-i18n="localFilenameHint">Enter the complete file name, including an optional extension.</p>
         <button id="createLocalFileButton" class="button button-warm" type="button" data-i18n="createLocalFileButton">Create local file</button>
       </div>
 
@@ -170,13 +172,14 @@
 
       <label for="gistUrlInput" data-i18n="gistUrlLabel">Gist URL or ID</label>
       <div class="input-action-row">
-        <input id="gistUrlInput" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="gistUrlPlaceholder" placeholder="https://gist.github.com/username/…">
+        <input id="gistUrlInput" type="text" autocomplete="off" spellcheck="false"
+          data-i18n-placeholder="gistUrlPlaceholder" placeholder="https://gist.github.com/username/…">
         <button id="loadGistButton" class="button" type="button" data-i18n="loadGistButton">Load files</button>
       </div>
 
       <div class="gist-browser-row">
-        <button id="browseMyGistsButton" class="button button-secondary button-small"
-          type="button" data-i18n="browseMyGistsButton">Browse my Gists</button>
+        <button id="browseMyGistsButton" class="button button-secondary button-small" type="button"
+          data-i18n="browseMyGistsButton">Browse my Gists</button>
       </div>
 
       <div id="gistFilePicker" class="gist-file-picker" hidden>
@@ -189,6 +192,28 @@
       <div class="dialog-actions">
         <button id="addSelectedButton" class="button" type="submit" data-i18n="addSelectedButton" disabled>Add selected files</button>
         <button id="cancelAddGistButton" class="button button-secondary" type="button" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Options shown when Push needs to create a new Gist. -->
+  <dialog id="createGistDialog" class="dialog create-gist-dialog">
+    <form id="createGistForm" class="dialog-form">
+      <div class="dialog-heading">
+        <h2 data-i18n="createGistTitle">Create a Gist</h2>
+        <button id="closeCreateGistButton" class="icon-button" type="button" data-i18n-title="closeButton" title="Close" aria-label="Close">×</button>
+      </div>
+      <label for="gistDescriptionInput" data-i18n="gistDescriptionLabel">Description</label>
+      <input id="gistDescriptionInput" name="description" type="text" maxlength="256"
+        data-i18n-placeholder="gistDescriptionPlaceholder" placeholder="Optional description">
+      <label class="checkbox-row" for="gistSecretInput">
+        <input id="gistSecretInput" name="secret" type="checkbox" checked>
+        <span data-i18n="gistSecretOption">Create as Secret Gist (unlisted)</span>
+      </label>
+      <p class="field-hint" data-i18n="gistSecretHint">Secret Gists are unlisted, not private. Anyone with the link can view them.</p>
+      <div class="dialog-actions">
+        <button class="button button-warm" type="submit" data-i18n="createGistButton">Create Gist</button>
+        <button id="cancelCreateGistButton" class="button button-secondary" type="button" data-i18n="cancelButton">Cancel</button>
       </div>
     </form>
   </dialog>
@@ -212,7 +237,7 @@
   <!-- CodeMirror core -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js"></script>
 
-  <!-- CodeMirror modes: dependencies are loaded before modes that use them. -->
+  <!-- CodeMirror modes -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/xml/xml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/javascript/javascript.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/css/css.js"></script>

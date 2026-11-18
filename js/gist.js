@@ -20,12 +20,16 @@ async function request(url, options = {}) {
       ...options,
       headers: {
         Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2026-03-10',
+        'X-GitHub-Api-Version': '2022-11-28',
         ...options.headers
       }
     });
   } catch (error) {
-    throw new GistServiceError('Network request failed. Check your connection and try again.', 0, error?.message ?? '');
+    throw new GistServiceError(
+      'Network request failed. Check your connection and try again.',
+      0,
+      error?.message ?? ''
+    );
   }
 
   const data = await response.json().catch(() => null);
@@ -44,7 +48,7 @@ function createAuthHeaders(token) {
 
 export const GistService = Object.freeze({
   // Lists every Gist owned by the authenticated user, including Secret Gists.
-  // GitHub returns at most 100 Gists per page.
+  // GitHub returns up to 100 Gists per page.
   async listGists(token) {
     if (!token) throw new GistServiceError('errorTokenRequired');
 
@@ -54,9 +58,7 @@ export const GistService = Object.freeze({
     while (true) {
       const batch = await request(
         `${GITHUB_API}/gists?per_page=100&page=${page}`,
-        {
-          headers: createAuthHeaders(token)
-        }
+        { headers: createAuthHeaders(token) }
       );
 
       if (!Array.isArray(batch)) {
@@ -70,7 +72,6 @@ export const GistService = Object.freeze({
         public: Boolean(gist.public),
         updatedAt: gist.updated_at ?? null,
         files: Object.entries(gist.files ?? {}).map(([filename, file]) => ({
-          // Use the original filename returned by GitHub without modification.
           filename,
           size: Number(file.size ?? 0),
           language: file.language ?? ''
@@ -87,12 +88,15 @@ export const GistService = Object.freeze({
   async readGist(gistId, token = '') {
     if (!gistId) throw new GistServiceError('errorGistIdRequired');
 
-    const gist = await request(`${GITHUB_API}/gists/${encodeURIComponent(gistId)}`, {
-      headers: createAuthHeaders(token)
-    });
+    const gist = await request(
+      `${GITHUB_API}/gists/${encodeURIComponent(gistId)}`,
+      { headers: createAuthHeaders(token) }
+    );
 
     if (gist?.truncated) {
-      throw new GistServiceError('GitHub returned an incomplete Gist file list (more than 300 files).');
+      throw new GistServiceError(
+        'GitHub returned an incomplete Gist file list (more than 300 files).'
+      );
     }
 
     const files = Object.entries(gist?.files ?? {}).map(([filename, file]) => ({
@@ -108,27 +112,78 @@ export const GistService = Object.freeze({
       id: gist.id,
       description: gist.description ?? '',
       htmlUrl: gist.html_url ?? `https://gist.github.com/${gist.id}`,
+      public: Boolean(gist.public),
       updatedAt: gist.updated_at ?? null,
       files
     };
   },
 
-  // Updates multiple files in one Gist with a single PATCH request.
-  async writeFiles(gistId, token, files) {
+  // Creates a Gist containing one or more files.
+  // `public: false` creates a Secret Gist (unlisted, not private).
+  //
+  // Example:
+  // GistService.createGist(token, {
+  //   description: 'My notes',
+  //   public: false,
+  //   files: { 'notes.md': 'Hello world' }
+  // });
+  async createGist(token, {
+    description = '',
+    public: isPublic = false,
+    files
+  } = {}) {
     if (!token) throw new GistServiceError('errorTokenRequired');
 
-    return request(`${GITHUB_API}/gists/${encodeURIComponent(gistId)}`, {
-      method: 'PATCH',
+    if (!files || typeof files !== 'object' || Array.isArray(files) || !Object.keys(files).length) {
+      throw new GistServiceError('At least one Gist file is required.');
+    }
+
+    const gistFiles = Object.fromEntries(
+      Object.entries(files).map(([filename, content]) => {
+        if (!filename || typeof content !== 'string') {
+          throw new GistServiceError('Invalid Gist file.');
+        }
+
+        return [filename, { content }];
+      })
+    );
+
+    return request(`${GITHUB_API}/gists`, {
+      method: 'POST',
       headers: {
         ...createAuthHeaders(token),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        files: Object.fromEntries(Object.entries(files).map(([filename, content]) => [
-          filename,
-          { content }
-        ]))
+        description: String(description ?? ''),
+        public: Boolean(isPublic),
+        files: gistFiles
       })
     });
+  },
+
+  // Updates multiple files in one Gist with a single PATCH request.
+  async writeFiles(gistId, token, files) {
+    if (!token) throw new GistServiceError('errorTokenRequired');
+    if (!gistId) throw new GistServiceError('errorGistIdRequired');
+
+    return request(
+      `${GITHUB_API}/gists/${encodeURIComponent(gistId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...createAuthHeaders(token),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          files: Object.fromEntries(
+            Object.entries(files).map(([filename, content]) => [
+              filename,
+              { content }
+            ])
+          )
+        })
+      }
+    );
   }
 });
